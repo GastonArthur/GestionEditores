@@ -15,6 +15,7 @@ import { useState, useEffect } from "react"
 export default function NewProjectPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [clients, setClients] = useState<any[]>([])
   const [formData, setFormData] = useState({
     title: "",
@@ -36,24 +37,34 @@ export default function NewProjectPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
 
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-    const { error } = await supabase.from("projects").insert({
-      ...formData,
-      client_id: formData.client_id || null,
-      price: Number(formData.price),
-      created_by: user?.id,
-    })
+      const { error: insertError } = await supabase.from("projects").insert({
+        ...formData,
+        client_id: formData.client_id || null,
+        price: Number(formData.price),
+        created_by: user?.id,
+      })
 
-    if (!error) {
+      if (insertError) {
+        setError(insertError.message)
+        setIsLoading(false)
+        return
+      }
+
       router.push("/admin/projects")
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      setError("Ocurrió un error inesperado")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
@@ -136,6 +147,8 @@ export default function NewProjectPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex gap-2">
               <Button type="submit" disabled={isLoading}>

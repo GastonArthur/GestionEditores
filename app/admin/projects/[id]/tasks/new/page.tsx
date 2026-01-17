@@ -17,6 +17,7 @@ export default function NewTaskPage() {
   const params = useParams()
   const projectId = params?.id as string
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [editors, setEditors] = useState<any[]>([])
   const [formData, setFormData] = useState({
     title: "",
@@ -30,7 +31,7 @@ export default function NewTaskPage() {
   useEffect(() => {
     const fetchEditors = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from("users").select("*").eq("role", "editor").order("full_name")
+      const { data } = await supabase.from("profiles").select("*").eq("role", "editor").order("full_name")
       if (data) setEditors(data)
     }
     fetchEditors()
@@ -39,22 +40,34 @@ export default function NewTaskPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const { error } = await supabase.from("tasks").insert({
-      ...formData,
-      project_id: projectId,
-      editor_id: formData.editor_id || null,
-      video_count: Number(formData.video_count),
-      payment_amount: Number(formData.payment_amount),
-    })
+      const { error: insertError } = await supabase.from("tasks").insert({
+        title: formData.title,
+        description: formData.description,
+        status: formData.status,
+        project_id: projectId,
+        editor_id: formData.editor_id || null,
+        content_quantity: Number(formData.video_count),
+        editor_payment: Number(formData.payment_amount),
+      })
 
-    if (!error) {
+      if (insertError) {
+        setError(insertError.message)
+        setIsLoading(false)
+        return
+      }
+
       router.push(`/admin/projects/${projectId}`)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      setError("Ocurrió un error inesperado")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
@@ -150,6 +163,8 @@ export default function NewTaskPage() {
                 </Select>
               </div>
             </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex gap-2">
               <Button type="submit" disabled={isLoading}>

@@ -22,16 +22,22 @@ export default function LoginPage() {
     setIsLoading(true)
     setError(null)
 
-    const { user, error: loginError } = await loginWithUsername(username, password)
+    try {
+      const { user, error: loginError } = await loginWithUsername(username, password)
 
-    if (loginError || !user) {
-      setError(loginError || "Error al iniciar sesión")
+      if (loginError || !user) {
+        setError(loginError || "Error al iniciar sesión")
+        setIsLoading(false)
+        return
+      }
+
+      router.push(user.role === "admin" ? "/admin" : "/editor")
+      router.refresh()
+    } catch (err) {
+      console.error("Login error:", err)
+      setError("Ocurrió un error inesperado. Por favor, intente nuevamente.")
       setIsLoading(false)
-      return
     }
-
-    router.push(user.role === "admin" ? "/admin" : "/editor")
-    router.refresh()
   }
 
   return (

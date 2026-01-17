@@ -45,7 +45,12 @@ export async function loginWithUsername(
   }
 
   // Registrar log de login
-  await logActivity(profile.id, "login", "user", profile.id, profile.username)
+  try {
+    await logActivity(profile.id, "login", "user", profile.id, profile.username)
+  } catch (error) {
+    console.error("Error logging activity:", error)
+    // No bloqueamos el login si falla el log
+  }
 
   return { user, error: null }
 }

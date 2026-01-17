@@ -21,17 +21,26 @@ export function TaskStatusUpdater({ taskId, currentStatus }: TaskStatusUpdaterPr
     if (status === currentStatus) return
 
     setIsLoading(true)
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const updateData: Record<string, unknown> = { status }
-    if (status === "completada") {
-      updateData.completed_at = new Date().toISOString()
+      const updateData: Record<string, unknown> = { status }
+      if (status === "completed") {
+        updateData.completed_at = new Date().toISOString()
+      }
+
+      const { error } = await supabase.from("tasks").update(updateData).eq("id", taskId)
+
+      if (error) {
+        console.error("Error updating task status:", error)
+      } else {
+        router.refresh()
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error)
+    } finally {
+      setIsLoading(false)
     }
-
-    await supabase.from("tasks").update(updateData).eq("id", taskId)
-
-    setIsLoading(false)
-    router.refresh()
   }
 
   return (
@@ -41,9 +50,9 @@ export function TaskStatusUpdater({ taskId, currentStatus }: TaskStatusUpdaterPr
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="pendiente">Pendiente</SelectItem>
-          <SelectItem value="en_proceso">En Proceso</SelectItem>
-          <SelectItem value="completada">Completada</SelectItem>
+          <SelectItem value="pending">Pendiente</SelectItem>
+          <SelectItem value="in_progress">En Proceso</SelectItem>
+          <SelectItem value="completed">Completada</SelectItem>
         </SelectContent>
       </Select>
       <Button onClick={handleUpdate} disabled={isLoading || status === currentStatus} size="sm">

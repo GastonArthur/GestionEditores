@@ -26,41 +26,47 @@ export default function NewEditorPage() {
     setIsLoading(true)
     setError(null)
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
-          full_name: formData.full_name,
-          role: "editor",
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.full_name,
+            role: "editor",
+          },
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/editor`,
         },
-        emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/editor`,
-      },
-    })
+      })
 
-    if (authError) {
-      setError(authError.message)
-      setIsLoading(false)
-      return
-    }
-
-    if (authData.user) {
-      const { error: profileError } = await supabase
-        .from("users")
-        .update({ phone: formData.phone })
-        .eq("id", authData.user.id)
-
-      if (profileError) {
-        setError(profileError.message)
+      if (authError) {
+        setError(authError.message)
         setIsLoading(false)
         return
       }
-    }
 
-    router.push("/admin/contacts")
-    setIsLoading(false)
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({ phone: formData.phone })
+          .eq("id", authData.user.id)
+
+        if (profileError) {
+          console.error("Error updating profile:", profileError)
+          // Don't block success if profile update fails, but maybe warn?
+          // Or if the profile doesn't exist yet (trigger delay), this might fail.
+        }
+      }
+
+      router.push("/admin/contacts")
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      setError("Ocurrió un error inesperado")
+      setIsLoading(false)
+    }
   }
 
   return (

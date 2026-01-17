@@ -37,21 +37,28 @@ export function EditorTaskCard({ task }: { task: Task }) {
 
   const handleStatusChange = async (newStatus: string) => {
     setIsLoading(true)
-    const supabase = createClient()
+    
+    try {
+      const supabase = createClient()
 
-    const updateData: any = { status: newStatus }
+      const updateData: any = { status: newStatus }
 
-    if (newStatus === "completed") {
-      updateData.completed_at = new Date().toISOString()
+      if (newStatus === "completed") {
+        updateData.completed_at = new Date().toISOString()
+      }
+
+      const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id)
+
+      if (!error) {
+        setStatus(newStatus)
+      } else {
+        console.error("Error updating task:", error)
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error)
+    } finally {
+      setIsLoading(false)
     }
-
-    const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id)
-
-    if (!error) {
-      setStatus(newStatus)
-    }
-
-    setIsLoading(false)
   }
 
   return (

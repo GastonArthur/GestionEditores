@@ -14,6 +14,7 @@ import { useState } from "react"
 export default function NewClientPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -25,22 +26,32 @@ export default function NewClientPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const { error } = await supabase.from("clients").insert({
-      name: formData.name,
-      email: formData.email || null,
-      phone: formData.phone || null,
-      company: formData.company || null,
-      notes: formData.notes || null,
-    })
+      const { error: insertError } = await supabase.from("clients").insert({
+        name: formData.name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        company: formData.company || null,
+        notes: formData.notes || null,
+      })
 
-    if (!error) {
+      if (insertError) {
+        setError(insertError.message)
+        setIsLoading(false)
+        return
+      }
+
       router.push("/admin/contacts")
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      setError("Ocurrió un error inesperado")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
@@ -106,6 +117,8 @@ export default function NewClientPage() {
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               />
             </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex gap-2">
               <Button type="submit" disabled={isLoading}>
