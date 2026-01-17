@@ -31,8 +31,8 @@ export default function LoginPage() {
         return
       }
 
-      router.push(user.role === "admin" ? "/admin" : "/editor")
-      router.refresh()
+      // Force hard navigation to ensure state is clean and localStorage is picked up
+      window.location.href = user.role === "admin" ? "/admin" : "/editor"
     } catch (err) {
       console.error("Login error:", err)
       setError("Ocurrió un error inesperado. Por favor, intente nuevamente.")
