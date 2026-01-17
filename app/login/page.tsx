@@ -21,20 +21,24 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    console.log("Attempting login with username:", username)
 
     try {
       const { user, error: loginError } = await loginWithUsername(username, password)
+      console.log("Login result:", { user, error: loginError })
 
       if (loginError || !user) {
+        console.error("Login failed:", loginError)
         setError(loginError || "Error al iniciar sesión")
         setIsLoading(false)
         return
       }
 
+      console.log("Login successful, redirecting...", user.role)
       // Force hard navigation to ensure state is clean and localStorage is picked up
       window.location.href = user.role === "admin" ? "/admin" : "/editor"
     } catch (err) {
-      console.error("Login error:", err)
+      console.error("Login error exception:", err)
       setError("Ocurrió un error inesperado. Por favor, intente nuevamente.")
       setIsLoading(false)
     }

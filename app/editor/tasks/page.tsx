@@ -1,25 +1,57 @@
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TaskStatusUpdater } from "@/components/task-status-updater"
+import { getAuthUser } from "@/lib/auth"
 
-export default async function EditorTasksPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface Task {
+  id: string
+  title: string
+  description: string | null
+  status: string
+  priority: string
+  due_date: string | null
+  created_at: string
+  project?: { title: string }
+  client?: { name: string }
+}
 
-  if (!user) return null
+export default function EditorTasksPage() {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: tasks } = await supabase
-    .from("tasks")
-    .select("*, project:projects(title), client:clients(name)")
-    .eq("editor_id", user.id)
-    .order("created_at", { ascending: false })
+  useEffect(() => {
+    const loadData = async () => {
+      const user = getAuthUser()
+      if (!user) return
 
-  const pendingTasks = tasks?.filter((t) => t.status === "pendiente") || []
-  const inProgressTasks = tasks?.filter((t) => t.status === "en_proceso") || []
-  const completedTasks = tasks?.filter((t) => t.status === "completada") || []
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("tasks")
+        .select("*, project:projects(title), client:clients(name)")
+        .eq("editor_id", user.id)
+        .order("created_at", { ascending: false })
+
+      setTasks((data as any) || [])
+      setLoading(false)
+    }
+    loadData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    )
+  }
+
+  const pendingTasks = tasks.filter((t) => t.status === "pendiente") || []
+  const inProgressTasks = tasks.filter((t) => t.status === "en_proceso") || []
+  const completedTasks = tasks.filter((t) => t.status === "completada") || []
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -34,7 +66,7 @@ export default async function EditorTasksPage() {
     }
   }
 
-  const TaskCard = ({ task }: { task: (typeof tasks)[0] }) => (
+  const TaskCard = ({ task }: { task: Task }) => (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">

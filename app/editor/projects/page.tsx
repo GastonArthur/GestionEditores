@@ -1,20 +1,60 @@
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { getAuthUser } from "@/lib/auth"
 
-export default async function EditorProjectsPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface ProjectContent {
+  id: string
+  content_type: string
+  quantity: number
+}
 
-  if (!user) return null
+interface Project {
+  id: string
+  title: string
+  status: string
+  description: string | null
+  start_date: string | null
+  due_date: string | null
+  editor_payment: number | null
+  payment_made: boolean
+  payment_method: string | null
+  client?: { name: string }
+  contents?: ProjectContent[]
+}
 
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("*, client:clients(name), contents:project_contents(*)")
-    .eq("editor_id", user.id)
-    .order("created_at", { ascending: false })
+export default function EditorProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      const user = getAuthUser()
+      if (!user) return
+
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("projects")
+        .select("*, client:clients(name), contents:project_contents(*)")
+        .eq("editor_id", user.id)
+        .order("created_at", { ascending: false })
+
+      setProjects((data as any) || [])
+      setLoading(false)
+    }
+    loadData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    )
+  }
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -45,13 +85,13 @@ export default async function EditorProjectsPage() {
         <p className="text-muted-foreground">Proyectos asignados a ti</p>
       </div>
 
-      {projects?.length === 0 ? (
+      {projects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">No tienes proyectos asignados</CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {projects?.map((project) => (
+          {projects.map((project) => (
             <Card key={project.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -70,7 +110,7 @@ export default async function EditorProjectsPage() {
                   <div>
                     <p className="text-sm font-medium mb-2">Contenido:</p>
                     <div className="flex flex-wrap gap-2">
-                      {project.contents.map((content: { id: string; content_type: string; quantity: number }) => (
+                      {project.contents.map((content) => (
                         <Badge key={content.id} variant="outline">
                           {content.quantity}x {contentTypeLabels[content.content_type] || content.content_type}
                         </Badge>

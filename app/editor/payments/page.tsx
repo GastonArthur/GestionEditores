@@ -1,32 +1,72 @@
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, CheckCircle } from "lucide-react"
+import { getAuthUser } from "@/lib/auth"
 
-export default async function EditorPaymentsPage() {
-  const supabase = await createClient()
+interface CompletedTask {
+  id: string
+  title: string
+  payment_amount: number
+  completed_at: string | null
+  projects?: { title: string }
+}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface Payment {
+  id: string
+  payment_date: string
+  amount: number
+  notes: string | null
+}
 
-  const [{ data: completedTasks }, { data: payments }] = await Promise.all([
-    supabase
-      .from("tasks")
-      .select("id, title, payment_amount, completed_at, projects (title)")
-      .eq("editor_id", user?.id)
-      .eq("status", "completed")
-      .order("completed_at", { ascending: false }),
-    supabase
-      .from("payments")
-      .select("*")
-      .eq("editor_id", user?.id)
-      .order("payment_date", { ascending: false })
-      .limit(10),
-  ])
+export default function EditorPaymentsPage() {
+  const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const totalEarned = completedTasks?.reduce((sum, task) => sum + Number(task.payment_amount), 0) || 0
-  const totalPaid = payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0
+  useEffect(() => {
+    const loadData = async () => {
+      const user = getAuthUser()
+      if (!user) return
+
+      const supabase = createClient()
+
+      const [{ data: completedTasksData }, { data: paymentsData }] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id, title, payment_amount, completed_at, projects (title)")
+          .eq("editor_id", user.id)
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false }),
+        supabase
+          .from("payments")
+          .select("*")
+          .eq("editor_id", user.id)
+          .order("payment_date", { ascending: false })
+          .limit(10),
+      ])
+
+      setCompletedTasks((completedTasksData as any) || [])
+      setPayments((paymentsData as any) || [])
+      setLoading(false)
+    }
+
+    loadData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    )
+  }
+
+  const totalEarned = completedTasks.reduce((sum, task) => sum + Number(task.payment_amount), 0) || 0
+  const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0
   const pending = totalEarned - totalPaid
 
   return (
@@ -76,7 +116,7 @@ export default async function EditorPaymentsPage() {
           <CardTitle>Tareas Completadas</CardTitle>
         </CardHeader>
         <CardContent>
-          {!completedTasks?.length ? (
+          {completedTasks.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No has completado tareas todavía</p>
           ) : (
             <div className="space-y-3">
@@ -106,7 +146,7 @@ export default async function EditorPaymentsPage() {
           <CardTitle>Historial de Pagos</CardTitle>
         </CardHeader>
         <CardContent>
-          {!payments?.length ? (
+          {payments.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No hay pagos registrados</p>
           ) : (
             <div className="space-y-3">

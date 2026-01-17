@@ -1,42 +1,86 @@
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatsCard } from "@/components/stats-card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, FolderKanban, DollarSign, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { getAuthUser } from "@/lib/auth"
 
-export default async function EditorDashboard() {
-  const supabase = await createClient()
+interface Task {
+  id: string
+  title: string
+  status: string
+  priority: string
+  due_date: string | null
+  project?: { title: string }
+  client?: { name: string }
+  editor_id?: string
+}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface Project {
+  id: string
+  title: string
+  status: string
+  editor_payment: number | null
+  payment_made: boolean
+  client?: { name: string }
+  editor_id?: string
+}
 
-  if (!user) return null
+export default function EditorDashboard() {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Obtener datos del editor
-  const [{ data: tasks }, { data: projects }] = await Promise.all([
-    supabase
-      .from("tasks")
-      .select("*, project:projects(title), client:clients(name)")
-      .eq("editor_id", user.id)
-      .order("due_date", { ascending: true }),
-    supabase.from("projects").select("*, client:clients(name)").eq("editor_id", user.id),
-  ])
+  useEffect(() => {
+    const loadData = async () => {
+      const user = getAuthUser()
+      if (!user) return
+
+      const supabase = createClient()
+
+      // Obtener datos del editor
+      const [{ data: tasksData }, { data: projectsData }] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("*, project:projects(title), client:clients(name)")
+          .eq("editor_id", user.id)
+          .order("due_date", { ascending: true }),
+        supabase.from("projects").select("*, client:clients(name)").eq("editor_id", user.id),
+      ])
+
+      setTasks((tasksData as any) || [])
+      setProjects((projectsData as any) || [])
+      setLoading(false)
+    }
+
+    loadData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    )
+  }
 
   // Calcular estadísticas
-  const pendingTasks = tasks?.filter((t) => t.status !== "completada").length || 0
-  const activeProjects = projects?.filter((p) => p.status !== "cerrado").length || 0
+  const pendingTasks = tasks.filter((t) => t.status !== "completada").length || 0
+  const activeProjects = projects.filter((p) => p.status !== "cerrado").length || 0
   const pendingPayment =
-    projects?.filter((p) => !p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
+    projects.filter((p) => !p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
   const totalPaid =
-    projects?.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
+    projects.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
 
   // Tareas ordenadas por prioridad y fecha
   const priorityOrder = { urgente: 0, alta: 1, media: 2, baja: 3 }
   const sortedTasks =
     tasks
-      ?.filter((t) => t.status !== "completada")
+      .filter((t) => t.status !== "completada")
       .sort((a, b) => {
         const priorityDiff =
           (priorityOrder[a.priority as keyof typeof priorityOrder] || 2) -
@@ -143,12 +187,12 @@ export default async function EditorDashboard() {
           </Link>
         </CardHeader>
         <CardContent>
-          {projects?.length === 0 ? (
+          {projects.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No tienes proyectos asignados</p>
           ) : (
             <div className="space-y-3">
               {projects
-                ?.filter((p) => p.status !== "cerrado")
+                .filter((p) => p.status !== "cerrado")
                 .slice(0, 5)
                 .map((project) => (
                   <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg">
