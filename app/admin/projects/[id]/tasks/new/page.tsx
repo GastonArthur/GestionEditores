@@ -1,0 +1,167 @@
+"use client"
+
+import type React from "react"
+
+import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useRouter, useParams } from "next/navigation"
+import { useState, useEffect } from "react"
+
+export default function NewTaskPage() {
+  const router = useRouter()
+  const params = useParams()
+  const projectId = params?.id as string
+  const [isLoading, setIsLoading] = useState(false)
+  const [editors, setEditors] = useState<any[]>([])
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    video_count: "1",
+    payment_amount: "",
+    editor_id: "",
+    status: "pending",
+  })
+
+  useEffect(() => {
+    const fetchEditors = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from("users").select("*").eq("role", "editor").order("full_name")
+      if (data) setEditors(data)
+    }
+    fetchEditors()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    const supabase = createClient()
+
+    const { error } = await supabase.from("tasks").insert({
+      ...formData,
+      project_id: projectId,
+      editor_id: formData.editor_id || null,
+      video_count: Number(formData.video_count),
+      payment_amount: Number(formData.payment_amount),
+    })
+
+    if (!error) {
+      router.push(`/admin/projects/${projectId}`)
+    }
+
+    setIsLoading(false)
+  }
+
+  return (
+    <div className="space-y-6 p-8">
+      <div>
+        <h1 className="text-3xl font-bold">Nueva Tarea</h1>
+        <p className="text-muted-foreground">Crea una nueva tarea para el proyecto</p>
+      </div>
+
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Información de la Tarea</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Título</Label>
+              <Input
+                id="title"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Descripción</Label>
+              <Textarea
+                id="description"
+                rows={3}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="video_count">Cantidad de Videos</Label>
+                <Input
+                  id="video_count"
+                  type="number"
+                  min="1"
+                  required
+                  value={formData.video_count}
+                  onChange={(e) => setFormData({ ...formData, video_count: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment_amount">Monto a Pagar</Label>
+                <Input
+                  id="payment_amount"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={formData.payment_amount}
+                  onChange={(e) => setFormData({ ...formData, payment_amount: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="editor">Asignar Editor</Label>
+                <Select
+                  value={formData.editor_id}
+                  onValueChange={(value) => setFormData({ ...formData, editor_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar editor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editors.map((editor) => (
+                      <SelectItem key={editor.id} value={editor.id}>
+                        {editor.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Estado</Label>
+                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="in_progress">En Progreso</SelectItem>
+                    <SelectItem value="completed">Completado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Creando..." : "Crear Tarea"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
