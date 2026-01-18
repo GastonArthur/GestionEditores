@@ -12,21 +12,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
 
   useEffect(() => {
-    const authUser = getAuthUser()
-    console.log("AdminLayout: checking auth", authUser)
-    
-    if (!authUser) {
-      console.log("AdminLayout: no user, redirecting to login")
+    try {
+      const authUser = getAuthUser()
+      console.log("AdminLayout: checking auth", authUser)
+      
+      if (!authUser) {
+        console.log("AdminLayout: no user, redirecting to login")
+        router.push("/login")
+        return
+      }
+      if (authUser.role !== "admin") {
+        console.log("AdminLayout: user is not admin, redirecting to editor")
+        router.push("/editor")
+        return
+      }
+      setUser(authUser)
+      setLoading(false)
+    } catch (e) {
+      console.error("AdminLayout error:", e)
       router.push("/login")
-      return
     }
-    if (authUser.role !== "admin") {
-      console.log("AdminLayout: user is not admin, redirecting to editor")
-      router.push("/editor")
-      return
-    }
-    setUser(authUser)
-    setLoading(false)
   }, [router])
 
   if (loading) {

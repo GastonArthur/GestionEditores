@@ -12,23 +12,28 @@ export default function EditorLayout({ children }: { children: React.ReactNode }
   const router = useRouter()
 
   useEffect(() => {
-    const authUser = getAuthUser()
-    console.log("EditorLayout: checking auth", authUser)
+    try {
+      const authUser = getAuthUser()
+      console.log("EditorLayout: checking auth", authUser)
 
-    if (!authUser) {
-      console.log("EditorLayout: no user, redirecting to login")
+      if (!authUser) {
+        console.log("EditorLayout: no user, redirecting to login")
+        router.push("/login")
+        return
+      }
+      if (authUser.role !== "editor") {
+        // If admin tries to access editor, maybe allow? or redirect to admin?
+        // For now, let's strictly redirect to their dashboard if role mismatch
+        console.log("EditorLayout: user is not editor, redirecting to admin")
+        router.push("/admin")
+        return
+      }
+      setUser(authUser)
+      setLoading(false)
+    } catch (e) {
+      console.error("EditorLayout error:", e)
       router.push("/login")
-      return
     }
-    if (authUser.role !== "editor") {
-      // If admin tries to access editor, maybe allow? or redirect to admin?
-      // For now, let's strictly redirect to their dashboard if role mismatch
-      console.log("EditorLayout: user is not editor, redirecting to admin")
-      router.push("/admin")
-      return
-    }
-    setUser(authUser)
-    setLoading(false)
   }, [router])
 
   if (loading) {
