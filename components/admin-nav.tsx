@@ -17,10 +17,10 @@ export function AdminNav() {
   }
 
   const navItems = [
-    { href: "/admin", label: "Resumen", icon: LayoutDashboard },
-    { href: "/admin/tasks", label: "Tareas", icon: CheckSquare },
-    { href: "/admin/accounting", label: "Contabilidad", icon: DollarSign },
-    { href: "/admin/contacts", label: "Contactos", icon: Users },
+    { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
+    { href: "/tasks", label: "Tareas", icon: CheckSquare },
+    { href: "/accounting", label: "Contabilidad", icon: DollarSign },
+    { href: "/contacts", label: "Contactos", icon: Users },
   ]
 
   return (

@@ -54,7 +54,7 @@ export default async function ContactsPage() {
 
         <TabsContent value="clients" className="space-y-4">
           <div className="flex justify-end">
-            <Link href="/admin/contacts/clients/new">
+            <Link href="/contacts/clients/new">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Cliente
@@ -66,7 +66,7 @@ export default async function ContactsPage() {
 
         <TabsContent value="editors" className="space-y-4">
           <div className="flex justify-end">
-            <Link href="/admin/contacts/editors/new">
+            <Link href="/contacts/editors/new">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Editor

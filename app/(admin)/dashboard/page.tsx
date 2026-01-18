@@ -155,7 +155,7 @@ export default function AdminDashboard() {
         supabase.from("tasks").select("*, client:clients(*), editor:profiles(*)").order("created_at", { ascending: false }),
         supabase.from("clients").select("*").eq("is_active", true).order("name"),
         supabase.from("profiles").select("*").eq("role", "editor").eq("is_active", true).order("full_name"),
-        supabase.from("user_sections").select("*")
+        supabase.from("user_permissions").select("*")
       ])
 
       if (tasksError) {
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
       const sections: Record<string, string[]> = {}
       sectionsData?.forEach((s) => {
         if (!sections[s.user_id]) sections[s.user_id] = []
-        if (s.is_visible) sections[s.user_id].push(s.section_key)
+        if (s.can_view) sections[s.user_id].push(s.section_key)
       })
       setUserSections(sections)
 
@@ -468,8 +468,8 @@ export default function AdminDashboard() {
   // Toggle section permission
   const toggleSection = async (userId: string, sectionKey: string, isVisible: boolean) => {
     const supabase = createClient()
-    await supabase.from("user_sections").upsert(
-      { user_id: userId, section_key: sectionKey, is_visible: isVisible },
+    await supabase.from("user_permissions").upsert(
+      { user_id: userId, section_key: sectionKey, can_view: isVisible },
       { onConflict: "user_id,section_key" }
     )
     setUserSections((prev) => {
@@ -484,16 +484,16 @@ export default function AdminDashboard() {
 
   // Display Filters
   const filteredProjects = dateFilteredProjects.filter(p => 
-    p.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
-    p.client?.name?.toLowerCase().includes(projectSearch.toLowerCase())
+    (p.title || "").toLowerCase().includes(projectSearch.toLowerCase()) ||
+    (p.client?.name || "").toLowerCase().includes(projectSearch.toLowerCase())
   )
   const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.company?.toLowerCase().includes(clientSearch.toLowerCase())
+    (c.name || "").toLowerCase().includes(clientSearch.toLowerCase()) ||
+    (c.company || "").toLowerCase().includes(clientSearch.toLowerCase())
   )
   const filteredEditors = editors.filter(e => 
-    e.full_name.toLowerCase().includes(editorSearch.toLowerCase()) ||
-    e.username.toLowerCase().includes(editorSearch.toLowerCase())
+    (e.full_name || "").toLowerCase().includes(editorSearch.toLowerCase()) ||
+    (e.username || "").toLowerCase().includes(editorSearch.toLowerCase())
   )
 
   const statusColors: Record<string, string> = {
@@ -991,254 +991,253 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
-      {/* Project Dialog */}
-      <Dialog open={projectDialog} onOpenChange={setProjectDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingProject ? "Editar Proyecto" : "Nuevo Proyecto"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="p-title">Título *</Label>
-              <Input id="p-title" value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} />
+        {/* Project Dialog */}
+        <Dialog open={projectDialog} onOpenChange={setProjectDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingProject ? "Editar Proyecto" : "Nuevo Proyecto"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="p-title">Título *</Label>
+                <Input id="p-title" value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="p-desc">Descripción</Label>
+                <Textarea id="p-desc" rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Cliente</Label>
+                  <Select value={projectForm.client_id} onValueChange={(v) => setProjectForm({ ...projectForm, client_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Editor</Label>
+                  <Select value={projectForm.editor_id} onValueChange={(v) => setProjectForm({ ...projectForm, editor_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>
+                      {editors.map((e) => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="p-billed">Monto a Cobrar</Label>
+                  <Input id="p-billed" type="number" value={projectForm.billed_amount} onChange={(e) => setProjectForm({ ...projectForm, billed_amount: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="p-payment">Pago al Editor</Label>
+                  <Input id="p-payment" type="number" value={projectForm.editor_payment} onChange={(e) => setProjectForm({ ...projectForm, editor_payment: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Estado</Label>
+                  <Select value={projectForm.status} onValueChange={(v) => setProjectForm({ ...projectForm, status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pendiente</SelectItem>
+                      <SelectItem value="in_progress">En Progreso</SelectItem>
+                      <SelectItem value="completed">Completado</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="p-due">Fecha de Entrega</Label>
+                  <Input id="p-due" type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} />
+                </div>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="p-desc">Descripción</Label>
-              <Textarea id="p-desc" rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Cliente</Label>
-                <Select value={projectForm.client_id} onValueChange={(v) => setProjectForm({ ...projectForm, client_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Editor</Label>
-                <Select value={projectForm.editor_id} onValueChange={(v) => setProjectForm({ ...projectForm, editor_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>
-                    {editors.map((e) => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="p-billed">Monto a Cobrar</Label>
-                <Input id="p-billed" type="number" value={projectForm.billed_amount} onChange={(e) => setProjectForm({ ...projectForm, billed_amount: e.target.value })} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="p-payment">Pago al Editor</Label>
-                <Input id="p-payment" type="number" value={projectForm.editor_payment} onChange={(e) => setProjectForm({ ...projectForm, editor_payment: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Estado</Label>
-                <Select value={projectForm.status} onValueChange={(v) => setProjectForm({ ...projectForm, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="in_progress">En Progreso</SelectItem>
-                    <SelectItem value="completed">Completado</SelectItem>
-                    <SelectItem value="cancelled">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="p-due">Fecha de Entrega</Label>
-                <Input id="p-due" type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProjectDialog(false)}>Cancelar</Button>
-            <Button onClick={saveProject} disabled={saving || !projectForm.title}>
-              {saving ? "Guardando..." : "Guardar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setProjectDialog(false)}>Cancelar</Button>
+              <Button onClick={saveProject} disabled={saving || !projectForm.title}>
+                {saving ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Client Dialog */}
-      <Dialog open={clientDialog} onOpenChange={setClientDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingClient ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="c-name">Nombre *</Label>
-              <Input id="c-name" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="c-company">Empresa</Label>
-              <Input id="c-company" value={clientForm.company} onChange={(e) => setClientForm({ ...clientForm, company: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+        {/* Client Dialog */}
+        <Dialog open={clientDialog} onOpenChange={setClientDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingClient ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="c-phone">Teléfono</Label>
-                <Input id="c-phone" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
+                <Label htmlFor="c-name">Nombre *</Label>
+                <Input id="c-name" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="c-email">Email</Label>
-                <Input id="c-email" type="email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
+                <Label htmlFor="c-company">Empresa</Label>
+                <Input id="c-company" value={clientForm.company} onChange={(e) => setClientForm({ ...clientForm, company: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="c-phone">Teléfono</Label>
+                  <Input id="c-phone" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="c-email">Email</Label>
+                  <Input id="c-email" type="email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="c-notes">Notas</Label>
+                <Textarea id="c-notes" rows={3} value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="c-notes">Notas</Label>
-              <Textarea id="c-notes" rows={3} value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setClientDialog(false)}>Cancelar</Button>
-            <Button onClick={saveClient} disabled={saving || !clientForm.name}>
-              {saving ? "Guardando..." : "Guardar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setClientDialog(false)}>Cancelar</Button>
+              <Button onClick={saveClient} disabled={saving || !clientForm.name}>
+                {saving ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Editor Dialog */}
-      <Dialog open={editorDialog} onOpenChange={setEditorDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingEditor ? "Editar Editor" : "Nuevo Editor"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="e-name">Nombre *</Label>
-                <Input id="e-name" value={editorForm.full_name} onChange={(e) => setEditorForm({ ...editorForm, full_name: e.target.value })} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="e-user">Usuario *</Label>
-                <Input id="e-user" value={editorForm.username} onChange={(e) => setEditorForm({ ...editorForm, username: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="e-pass">{editingEditor ? "Nueva Contraseña (dejar vacío para mantener)" : "Contraseña *"}</Label>
-              <Input id="e-pass" type="password" value={editorForm.password_hash} onChange={(e) => setEditorForm({ ...editorForm, password_hash: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="e-phone">Teléfono</Label>
-                <Input id="e-phone" value={editorForm.phone} onChange={(e) => setEditorForm({ ...editorForm, phone: e.target.value })} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="e-email">Email</Label>
-                <Input id="e-email" type="email" value={editorForm.email} onChange={(e) => setEditorForm({ ...editorForm, email: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Frecuencia de Pago</Label>
-              <Select value={editorForm.payment_frequency} onValueChange={(v) => setEditorForm({ ...editorForm, payment_frequency: v as PaymentFrequency })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="diario">Diario</SelectItem>
-                  <SelectItem value="semanal">Semanal</SelectItem>
-                  <SelectItem value="quincenal">Quincenal</SelectItem>
-                  <SelectItem value="mensual">Mensual</SelectItem>
-                  <SelectItem value="por_proyecto">Por proyecto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditorDialog(false)}>Cancelar</Button>
-            <Button onClick={saveEditor} disabled={saving || !editorForm.full_name || !editorForm.username || (!editingEditor && !editorForm.password_hash)}>
-              {saving ? "Guardando..." : "Guardar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Project Dialog */}
-      <Dialog open={!!viewProject} onOpenChange={() => setViewProject(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{viewProject?.title}</DialogTitle>
-          </DialogHeader>
-          {viewProject && (
+        {/* Editor Dialog */}
+        <Dialog open={editorDialog} onOpenChange={setEditorDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingEditor ? "Editar Editor" : "Nuevo Editor"}</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Cliente</p>
-                  <p className="font-medium">{viewProject.client?.name || "Sin asignar"}</p>
+                <div className="grid gap-2">
+                  <Label htmlFor="e-name">Nombre *</Label>
+                  <Input id="e-name" value={editorForm.full_name} onChange={(e) => setEditorForm({ ...editorForm, full_name: e.target.value })} />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Editor</p>
-                  <p className="font-medium">{viewProject.editor?.full_name || "Sin asignar"}</p>
+                <div className="grid gap-2">
+                  <Label htmlFor="e-user">Usuario *</Label>
+                  <Input id="e-user" value={editorForm.username} onChange={(e) => setEditorForm({ ...editorForm, username: e.target.value })} />
                 </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="e-pass">{editingEditor ? "Nueva Contraseña (dejar vacío para mantener)" : "Contraseña *"}</Label>
+                <Input id="e-pass" type="password" value={editorForm.password_hash} onChange={(e) => setEditorForm({ ...editorForm, password_hash: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Monto a Cobrar</p>
-                  <p className="font-medium">${Number(viewProject.billed_amount || 0).toLocaleString()}</p>
+                <div className="grid gap-2">
+                  <Label htmlFor="e-phone">Teléfono</Label>
+                  <Input id="e-phone" value={editorForm.phone} onChange={(e) => setEditorForm({ ...editorForm, phone: e.target.value })} />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Pago al Editor</p>
-                  <p className="font-medium">${Number(viewProject.editor_payment || 0).toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Estado</p>
-                  <Badge className={statusColors[viewProject.status]}>{statusLabels[viewProject.status]}</Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Fecha de Entrega</p>
-                  <p className="font-medium">{viewProject.due_date || "Sin fecha"}</p>
+                <div className="grid gap-2">
+                  <Label htmlFor="e-email">Email</Label>
+                  <Input id="e-email" type="email" value={editorForm.email} onChange={(e) => setEditorForm({ ...editorForm, email: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <CheckSquare className={`h-4 w-4 ${viewProject.payment_received ? "text-green-600" : "text-muted-foreground"}`} />
-                  <span className="text-sm">{viewProject.payment_received ? "Pago recibido" : "Pago pendiente"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckSquare className={`h-4 w-4 ${viewProject.payment_made ? "text-green-600" : "text-muted-foreground"}`} />
-                  <span className="text-sm">{viewProject.payment_made ? "Editor pagado" : "Editor sin pagar"}</span>
-                </div>
+              <div className="grid gap-2">
+                <Label>Frecuencia de Pago</Label>
+                <Select value={editorForm.payment_frequency} onValueChange={(v) => setEditorForm({ ...editorForm, payment_frequency: v as PaymentFrequency })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="diario">Diario</SelectItem>
+                    <SelectItem value="semanal">Semanal</SelectItem>
+                    <SelectItem value="quincenal">Quincenal</SelectItem>
+                    <SelectItem value="mensual">Mensual</SelectItem>
+                    <SelectItem value="por_proyecto">Por proyecto</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              {viewProject.description && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Descripción</p>
-                  <p className="text-sm">{viewProject.description}</p>
-                </div>
-              )}
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewProject(null)}>Cerrar</Button>
-            <Button onClick={() => { openProjectDialog(viewProject!); setViewProject(null) }}>Editar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditorDialog(false)}>Cancelar</Button>
+              <Button onClick={saveEditor} disabled={saving || !editorForm.full_name || !editorForm.username || (!editingEditor && !editorForm.password_hash)}>
+                {saving ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar este elemento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
+        {/* View Project Dialog */}
+        <Dialog open={!!viewProject} onOpenChange={() => setViewProject(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{viewProject?.title}</DialogTitle>
+            </DialogHeader>
+            {viewProject && (
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Cliente</p>
+                    <p className="font-medium">{viewProject.client?.name || "Sin asignar"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Editor</p>
+                    <p className="font-medium">{viewProject.editor?.full_name || "Sin asignar"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Monto a Cobrar</p>
+                    <p className="font-medium">${Number(viewProject.billed_amount || 0).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pago al Editor</p>
+                    <p className="font-medium">${Number(viewProject.editor_payment || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Estado</p>
+                    <Badge className={statusColors[viewProject.status]}>{statusLabels[viewProject.status]}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fecha de Entrega</p>
+                    <p className="font-medium">{viewProject.due_date || "Sin fecha"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className={`h-4 w-4 ${viewProject.payment_received ? "text-green-600" : "text-muted-foreground"}`} />
+                    <span className="text-sm">{viewProject.payment_received ? "Pago recibido" : "Pago pendiente"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className={`h-4 w-4 ${viewProject.payment_made ? "text-green-600" : "text-muted-foreground"}`} />
+                    <span className="text-sm">{viewProject.payment_made ? "Editor pagado" : "Editor sin pagar"}</span>
+                  </div>
+                </div>
+                {viewProject.description && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Descripción</p>
+                    <p className="text-sm">{viewProject.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setViewProject(null)}>Cerrar</Button>
+              <Button onClick={() => { openProjectDialog(viewProject!); setViewProject(null) }}>Editar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar este elemento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    )
+  }

@@ -25,7 +25,7 @@ export default function EditorLayout({ children }: { children: React.ReactNode }
         // If admin tries to access editor, maybe allow? or redirect to admin?
         // For now, let's strictly redirect to their dashboard if role mismatch
         console.log("EditorLayout: user is not editor, redirecting to admin")
-        router.push("/admin")
+        router.push("/dashboard")
         return
       }
       setUser(authUser)

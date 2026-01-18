@@ -30,7 +30,7 @@ export default function SettingsPage() {
     const [{ data: editorsData }, { data: sectionsData }, { data: logsData }, { data: templatesData }] =
       await Promise.all([
         supabase.from("profiles").select("*").eq("role", "editor").eq("is_active", true),
-        supabase.from("user_sections").select("*"),
+        supabase.from("user_permissions").select("*"),
         supabase
           .from("activity_logs")
           .select("*, user:profiles(full_name)")
@@ -47,7 +47,7 @@ export default function SettingsPage() {
     const sections: Record<string, string[]> = {}
     sectionsData?.forEach((s) => {
       if (!sections[s.user_id]) sections[s.user_id] = []
-      if (s.is_visible) sections[s.user_id].push(s.section_key)
+      if (s.can_view) sections[s.user_id].push(s.section_key)
     })
     setUserSections(sections)
 
@@ -60,9 +60,9 @@ export default function SettingsPage() {
 
     // Upsert la sección
     await supabase
-      .from("user_sections")
+      .from("user_permissions")
       .upsert(
-        { user_id: userId, section_key: sectionKey, is_visible: isVisible },
+        { user_id: userId, section_key: sectionKey, can_view: isVisible },
         { onConflict: "user_id,section_key" },
       )
 

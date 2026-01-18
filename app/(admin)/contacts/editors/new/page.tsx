@@ -60,7 +60,7 @@ export default function NewEditorPage() {
         }
       }
 
-      router.push("/admin/contacts")
+      router.push("/contacts")
       router.refresh()
     } catch (err) {
       console.error(err)

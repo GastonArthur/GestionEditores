@@ -17,11 +17,11 @@ export interface Profile {
   updated_at: string
 }
 
-export interface UserSection {
+export interface UserPermission {
   id: string
   user_id: string
   section_key: string
-  is_visible: boolean
+  can_view: boolean
 }
 
 export interface Client {

@@ -40,7 +40,7 @@ export default async function ProjectsPage() {
           <h1 className="text-3xl font-bold">Proyectos</h1>
           <p className="text-muted-foreground">Gestiona todos tus proyectos de edición</p>
         </div>
-        <Link href="/admin/projects/new">
+        <Link href="/projects/new">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Proyecto
@@ -50,7 +50,7 @@ export default async function ProjectsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {projects?.map((project) => (
-          <Link key={project.id} href={`/admin/projects/${project.id}`}>
+          <Link key={project.id} href={`/projects/${project.id}`}>
             <Card className="transition-shadow hover:shadow-md">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -76,7 +76,7 @@ export default async function ProjectsPage() {
           <Card className="col-span-full">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground">No hay proyectos todavía</p>
-              <Link href="/admin/projects/new">
+              <Link href="/projects/new">
                 <Button className="mt-4 bg-transparent" variant="outline">
                   Crear el primero
                 </Button>

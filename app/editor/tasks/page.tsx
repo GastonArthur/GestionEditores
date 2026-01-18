@@ -21,6 +21,8 @@ interface Task {
   due_date: string | null
   created_at: string
   notes: string | null
+  payment_received: boolean
+  payment_made: boolean
   project?: { title: string }
 }
 
@@ -85,51 +87,83 @@ export default function EditorTasksPage() {
     }
 
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between">
-            <CardTitle className="text-base">{task.title}</CardTitle>
-            <Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge>
+      <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
+        <CardHeader className="pb-3 border-b bg-muted/10">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-bold leading-tight">{task.title}</CardTitle>
+              {task.project?.title && (
+                <p className="text-sm text-muted-foreground mt-1 font-medium">
+                  {task.project.title}
+                </p>
+              )}
+            </div>
+            <Badge className={`${getPriorityColor(task.priority)} shrink-0`}>{task.priority}</Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {task.description && (
-            <div>
-              <Label className="text-xs text-muted-foreground">Descripción</Label>
-              <p className="text-sm">{task.description}</p>
-            </div>
-          )}
-          
-          <div className="text-sm space-y-1">
-            {task.project?.title && (
-              <div>
-                <span className="text-muted-foreground">Proyecto:</span> {task.project.title}
-              </div>
-            )}
-            {task.due_date && (
-              <div>
-                <span className="text-muted-foreground">Vence:</span> {new Date(task.due_date).toLocaleDateString()}
-              </div>
-            )}
+        
+        <CardContent className="flex-1 space-y-5 pt-4">
+          {/* Status del pago - New Section */}
+          <div className="grid grid-cols-2 gap-3">
+             <div className="bg-background border rounded-md p-2 text-center shadow-sm">
+               <span className="text-xs text-muted-foreground block uppercase tracking-wider mb-1">Cobrado</span>
+               <span className={`text-sm font-bold ${task.payment_received ? "text-green-600" : "text-amber-600"}`}>
+                 {task.payment_received ? "SÍ" : "NO"}
+               </span>
+             </div>
+             <div className="bg-background border rounded-md p-2 text-center shadow-sm">
+               <span className="text-xs text-muted-foreground block uppercase tracking-wider mb-1">Pagado</span>
+               <span className={`text-sm font-bold ${task.payment_made ? "text-green-600" : "text-amber-600"}`}>
+                 {task.payment_made ? "SÍ" : "NO"}
+               </span>
+             </div>
           </div>
 
+          {/* Descripción Box */}
+          <div className="bg-muted/30 rounded-lg p-3 border border-muted">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Trabajo a realizar</Label>
+            <p className="text-sm leading-relaxed text-foreground/90 min-h-[60px]">
+              {task.description || "Sin descripción"}
+            </p>
+          </div>
+          
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+             {task.due_date && (
+               <div className="flex items-center gap-1">
+                 <span className="font-medium">Vence:</span> 
+                 <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-100">
+                   {new Date(task.due_date).toLocaleDateString()}
+                 </span>
+               </div>
+             )}
+          </div>
+
+          {/* Notas Box */}
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Mis Notas</Label>
-            <div className="flex gap-2">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mis Notas</Label>
+            <div className="relative">
               <Textarea 
                 value={notes} 
                 onChange={(e) => setNotes(e.target.value)} 
                 placeholder="Escribe tus notas aquí..."
-                className="min-h-[60px] text-sm"
+                className="min-h-[80px] text-sm resize-none pr-10 bg-background"
               />
-              <Button size="icon" variant="ghost" onClick={saveNotes} disabled={savingNotes}>
-                {savingNotes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                onClick={saveNotes} 
+                disabled={savingNotes}
+                className="absolute bottom-2 right-2 h-6 w-6 hover:bg-muted"
+              >
+                {savingNotes ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
               </Button>
             </div>
           </div>
-
-          <TaskStatusUpdater taskId={task.id} currentStatus={task.status} />
         </CardContent>
+        
+        <div className="p-4 pt-0 mt-auto">
+           <TaskStatusUpdater taskId={task.id} currentStatus={task.status} />
+        </div>
       </Card>
     )
   }
@@ -149,7 +183,7 @@ export default function EditorTasksPage() {
               <CardContent className="py-8 text-center text-muted-foreground">No tienes tareas pendientes</CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
               {pendingTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
@@ -164,7 +198,7 @@ export default function EditorTasksPage() {
               <CardContent className="py-8 text-center text-muted-foreground">No tienes tareas en proceso</CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
               {inProgressTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
@@ -179,7 +213,7 @@ export default function EditorTasksPage() {
               <CardContent className="py-8 text-center text-muted-foreground">No tienes tareas completadas</CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
               {completedTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}

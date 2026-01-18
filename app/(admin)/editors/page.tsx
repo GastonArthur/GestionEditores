@@ -6,6 +6,7 @@ import { DataTable } from "@/components/data-table"
 import { FormDialog } from "@/components/form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { logActivity, getAuthUser } from "@/lib/auth"
@@ -24,6 +25,7 @@ export default function EditorsPage() {
     phone: "",
     payment_frequency: "semanal" as PaymentFrequency,
   })
+  const [hasAccess, setHasAccess] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -45,19 +47,21 @@ export default function EditorsPage() {
   const openCreate = () => {
     setEditingEditor(null)
     setFormData({ username: "", password_hash: "", full_name: "", email: "", phone: "", payment_frequency: "semanal" })
+    setHasAccess(false)
     setDialogOpen(true)
   }
 
   const openEdit = (editor: Profile) => {
     setEditingEditor(editor)
     setFormData({
-      username: editor.username,
+      username: editor.username || "",
       password_hash: "",
       full_name: editor.full_name,
       email: editor.email || "",
       phone: editor.phone || "",
       payment_frequency: editor.payment_frequency || "semanal",
     })
+    setHasAccess(!!editor.username)
     setDialogOpen(true)
   }
 
@@ -66,20 +70,53 @@ export default function EditorsPage() {
     const supabase = createClient()
     const user = getAuthUser()
 
-    const data = { ...formData }
-    if (!data.password_hash && editingEditor) {
-      delete (data as { password_hash?: string }).password_hash
+    const data: any = { ...formData }
+    
+    // Si no tiene acceso, limpiamos username y password
+    if (!hasAccess) {
+      data.username = null
+      data.password_hash = null
+    } else {
+      // Validaciones básicas si tiene acceso
+      if (!data.username) {
+        alert("El usuario es requerido si se habilita el acceso")
+        setSaving(false)
+        return
+      }
+      if (!editingEditor && !data.password_hash) {
+        alert("La contraseña es requerida para nuevos usuarios con acceso")
+        setSaving(false)
+        return
+      }
+    }
+
+    if (data.password_hash === "" && editingEditor) {
+      delete data.password_hash
     }
 
     if (editingEditor) {
-      await supabase.from("profiles").update(data).eq("id", editingEditor.id)
+      const { error } = await supabase.from("profiles").update(data).eq("id", editingEditor.id)
+      
+      if (error) {
+        alert("Error al actualizar editor: " + error.message)
+        setSaving(false)
+        return
+      }
+
       await logActivity(user?.id || null, "update", "editor", editingEditor.id, data.full_name)
     } else {
-      const { data: newEditor } = await supabase
+      const { data: newEditor, error } = await supabase
         .from("profiles")
         .insert({ ...data, role: "editor" })
         .select()
         .single()
+      
+      if (error) {
+        alert("Error al crear editor: " + error.message)
+        setSaving(false)
+        return
+      }
+
       await logActivity(user?.id || null, "create", "editor", newEditor?.id, data.full_name)
     }
 
@@ -106,7 +143,20 @@ export default function EditorsPage() {
 
   const columns = [
     { key: "full_name", label: "Nombre", sortable: true },
-    { key: "username", label: "Usuario" },
+    { 
+      key: "username", 
+      label: "Usuario",
+      render: (e: Profile) => (
+        e.username ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">Usuario</Badge>
+            <span>{e.username}</span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-sm italic">Sin acceso</span>
+        )
+      )
+    },
     { key: "phone", label: "Teléfono" },
     { key: "email", label: "Email" },
     {
@@ -150,38 +200,49 @@ export default function EditorsPage() {
         isLoading={saving}
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="full_name">Nombre completo *</Label>
-              <Input
-                id="full_name"
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="username">Usuario *</Label>
-              <Input
-                id="username"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                required
-              />
-            </div>
-          </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">
-              {editingEditor ? "Nueva contraseña (dejar vacío para mantener)" : "Contraseña *"}
-            </Label>
+            <Label htmlFor="full_name">Nombre completo *</Label>
             <Input
-              id="password"
-              type="password"
-              value={formData.password_hash}
-              onChange={(e) => setFormData({ ...formData, password_hash: e.target.value })}
-              required={!editingEditor}
+              id="full_name"
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              required
             />
           </div>
+
+          <div className="flex items-center space-x-2 border p-4 rounded-md">
+            <Switch id="has-access" checked={hasAccess} onCheckedChange={setHasAccess} />
+            <Label htmlFor="has-access" className="font-medium cursor-pointer">
+              Habilitar acceso al sistema (Usuario y Contraseña)
+            </Label>
+          </div>
+
+          {hasAccess && (
+            <div className="grid grid-cols-2 gap-4 p-4 border rounded-md bg-muted/20">
+              <div className="grid gap-2">
+                <Label htmlFor="username">Usuario *</Label>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required={hasAccess}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">
+                  {editingEditor ? "Nueva contraseña (opcional)" : "Contraseña *"}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password_hash}
+                  onChange={(e) => setFormData({ ...formData, password_hash: e.target.value })}
+                  required={hasAccess && !editingEditor}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="phone">Teléfono</Label>

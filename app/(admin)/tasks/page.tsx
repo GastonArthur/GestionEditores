@@ -20,7 +20,7 @@ export default async function TasksPage() {
           <h1 className="text-3xl font-bold">Gestión de Tareas</h1>
           <p className="text-muted-foreground">Administra las tareas de cada editor</p>
         </div>
-        <Link href="/admin/tasks/new">
+        <Link href="/tasks/new">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Nueva Tarea
@@ -32,7 +32,7 @@ export default async function TasksPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground">No hay editores registrados</p>
-            <Link href="/admin/contacts">
+            <Link href="/contacts">
               <Button className="mt-4 bg-transparent" variant="outline">
                 Agregar Editor
               </Button>

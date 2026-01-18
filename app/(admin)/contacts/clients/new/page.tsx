@@ -45,7 +45,7 @@ export default function NewClientPage() {
         return
       }
 
-      router.push("/admin/contacts")
+      router.push("/contacts")
       router.refresh()
     } catch (err) {
       console.error(err)

@@ -61,7 +61,7 @@ export default function NewProjectPage() {
         return
       }
 
-      router.push("/admin/projects")
+      router.push("/projects")
       router.refresh()
     } catch (err) {
       console.error(err)

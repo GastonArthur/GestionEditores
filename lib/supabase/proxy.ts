@@ -6,7 +6,7 @@ export async function updateSession(request: NextRequest) {
   // Redirigir root y login directamente a admin (bypass auth temporalmente)
   if (pathname === "/" || pathname === "/login") {
     const url = request.nextUrl.clone()
-    url.pathname = "/admin"
+    url.pathname = "/dashboard"
     return NextResponse.redirect(url)
   }
 

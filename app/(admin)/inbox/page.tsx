@@ -233,7 +233,7 @@ function InboxList({
                     <Check className="h-4 w-4" />
                   </Button>
                 )}
-                <Link href={`/admin/projects/${item.project.id}`}>
+                <Link href={`/projects/${item.project.id}`}>
                   <Button size="sm" variant="ghost">
                     <ArrowRight className="h-4 w-4" />
                   </Button>

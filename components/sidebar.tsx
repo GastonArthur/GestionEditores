@@ -46,32 +46,32 @@ export function Sidebar({ role, userName }: SidebarProps) {
       key: "general",
       label: "General",
       items: [
-        { href: "/admin", label: "Panel Principal", icon: LayoutDashboard, exact: true },
-        { href: "/admin/inbox", label: "Bandeja de Entrada", icon: Inbox },
+        { href: "/dashboard", label: "Panel Principal", icon: LayoutDashboard, exact: true },
+        { href: "/inbox", label: "Bandeja de Entrada", icon: Inbox },
       ]
     },
     {
       key: "management",
       label: "Gestión",
       items: [
-        { href: "/admin/projects", label: "Proyectos", icon: FolderKanban },
-        { href: "/admin/tasks", label: "Tareas", icon: CheckSquare },
-        { href: "/admin/clients", label: "Clientes", icon: Users },
-        { href: "/admin/editors", label: "Editores", icon: UserCircle },
+        { href: "/projects", label: "Proyectos", icon: FolderKanban },
+        { href: "/tasks", label: "Tareas", icon: CheckSquare },
+        { href: "/clients", label: "Clientes", icon: Users },
+        { href: "/editors", label: "Editores", icon: UserCircle },
       ]
     },
     {
       key: "finance",
       label: "Finanzas",
       items: [
-        { href: "/admin/accounting", label: "Contabilidad", icon: DollarSign },
+        { href: "/accounting", label: "Contabilidad", icon: DollarSign },
       ]
     },
     {
       key: "settings",
       label: "Configuración",
       items: [
-        { href: "/admin/settings", label: "Ajustes", icon: Settings },
+        { href: "/settings", label: "Ajustes", icon: Settings },
       ]
     }
   ]

@@ -18,7 +18,7 @@ export function EditorsList({ editors }: { editors: Editor[] }) {
       <Card>
         <CardContent className="py-12 text-center">
           <p className="text-muted-foreground">No hay editores registrados</p>
-          <Link href="/admin/contacts/editors/new">
+          <Link href="/contacts/editors/new">
             <Button className="mt-4 bg-transparent" variant="outline">
               Agregar el primero
             </Button>
@@ -35,7 +35,7 @@ export function EditorsList({ editors }: { editors: Editor[] }) {
           <CardHeader>
             <div className="flex items-start justify-between">
               <CardTitle className="text-lg">{editor.full_name}</CardTitle>
-              <Link href={`/admin/contacts/editors/${editor.id}/edit`}>
+              <Link href={`/contacts/editors/${editor.id}/edit`}>
                 <Button size="icon" variant="ghost">
                   <Pencil className="h-4 w-4" />
                 </Button>

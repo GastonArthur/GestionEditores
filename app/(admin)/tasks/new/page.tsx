@@ -17,17 +17,16 @@ import { useRouter } from "next/navigation"
 export default function NewTaskPage() {
   const router = useRouter()
   const [editors, setEditors] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     editor_id: "",
-    client_name: "",
-    client_phone: "",
-    editor_phone: "",
+    client_id: "",
     content_type: "",
     content_quantity: 1,
     billed_amount: 0,
     editor_payment: 0,
-    charged_by: "",
+    billed_by: "",
     paid_by: "",
     payment_received: false,
     payment_made: false,
@@ -36,6 +35,7 @@ export default function NewTaskPage() {
 
   useEffect(() => {
     loadEditors()
+    loadClients()
   }, [])
 
   useEffect(() => {
@@ -48,6 +48,12 @@ export default function NewTaskPage() {
     const supabase = createClient()
     const { data } = await supabase.from("profiles").select("*").eq("role", "editor").order("full_name")
     if (data) setEditors(data)
+  }
+
+  const loadClients = async () => {
+    const supabase = createClient()
+    const { data } = await supabase.from("clients").select("*").order("name")
+    if (data) setClients(data)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,14 +73,14 @@ export default function NewTaskPage() {
     setLoading(false)
 
     if (!error) {
-      router.push("/admin/tasks")
+      router.push("/tasks")
     }
   }
 
   return (
     <div className="space-y-6 p-8 max-w-3xl mx-auto">
       <div className="flex items-center gap-4">
-        <Link href="/admin/tasks">
+        <Link href="/tasks">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -96,8 +102,7 @@ export default function NewTaskPage() {
               <Select
                 value={formData.editor_id}
                 onValueChange={(value) => {
-                  const editor = editors.find((e) => e.id === value)
-                  setFormData({ ...formData, editor_id: value, editor_phone: editor?.phone || "" })
+                  setFormData({ ...formData, editor_id: value })
                 }}
                 required
               >
@@ -114,24 +119,26 @@ export default function NewTaskPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="client_name">Cliente *</Label>
-                <Input
-                  id="client_name"
-                  value={formData.client_name}
-                  onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="client_phone">Teléfono Cliente</Label>
-                <Input
-                  id="client_phone"
-                  value={formData.client_phone}
-                  onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
-                />
-              </div>
+            <div>
+              <Label htmlFor="client">Cliente *</Label>
+              <Select
+                value={formData.client_id}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, client_id: value })
+                }}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -194,12 +201,12 @@ export default function NewTaskPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="charged_by">Cobrado Por</Label>
+                <Label htmlFor="billed_by">Cobrado Por</Label>
                 <Input
-                  id="charged_by"
+                  id="billed_by"
                   placeholder="Método de cobro"
-                  value={formData.charged_by}
-                  onChange={(e) => setFormData({ ...formData, charged_by: e.target.value })}
+                  value={formData.billed_by}
+                  onChange={(e) => setFormData({ ...formData, billed_by: e.target.value })}
                 />
               </div>
               <div>
@@ -237,7 +244,7 @@ export default function NewTaskPage() {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Link href="/admin/tasks" className="flex-1">
+              <Link href="/tasks" className="flex-1">
                 <Button type="button" variant="outline" className="w-full bg-transparent">
                   Cancelar
                 </Button>
