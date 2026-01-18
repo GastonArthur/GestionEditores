@@ -52,13 +52,17 @@ export function Sidebar({ role, userName }: SidebarProps) {
       if (!user) return
 
       const supabase = createClient()
-      const { data } = await supabase
-        .from("user_sections")
+      const { data, error } = await supabase
+        .from("user_permissions") // Changed from user_sections to match DB
         .select("section_key")
         .eq("user_id", user.id)
-        .eq("is_visible", true)
+        .eq("can_view", true) // Changed logic to match boolean field if needed, or just existence
 
-      if (data) {
+      if (error) {
+        console.warn("Error loading permissions:", error)
+      }
+
+      if (data && data.length > 0) {
         setVisibleSections(data.map((s) => s.section_key))
       } else {
         // Default sections

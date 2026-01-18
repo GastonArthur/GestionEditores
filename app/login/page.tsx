@@ -35,8 +35,16 @@ export default function LoginPage() {
       }
 
       console.log("Login successful, redirecting...", user.role)
-      // Force hard navigation to ensure state is clean and localStorage is picked up
-      window.location.href = user.role === "admin" ? "/admin" : "/editor"
+      
+      // Use router.push for smoother navigation, but verify localStorage first
+      if (localStorage.getItem("auth_user")) {
+        router.push(user.role === "admin" ? "/admin" : "/editor")
+      } else {
+        // Fallback if localStorage failed (unlikely)
+        console.error("LocalStorage failed to save user")
+        setError("Error al guardar la sesión. Intente nuevamente.")
+        setIsLoading(false)
+      }
     } catch (err) {
       console.error("Login error exception:", err)
       setError("Ocurrió un error inesperado. Por favor, intente nuevamente.")

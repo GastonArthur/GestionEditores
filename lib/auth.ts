@@ -57,8 +57,15 @@ export async function loginWithUsername(
 
 export function getAuthUser(): AuthUser | null {
   if (typeof window === "undefined") return null
-  const stored = localStorage.getItem("auth_user")
-  return stored ? JSON.parse(stored) : null
+  try {
+    const stored = localStorage.getItem("auth_user")
+    return stored ? JSON.parse(stored) : null
+  } catch (error) {
+    console.error("Error parsing auth user from localStorage:", error)
+    // Clear invalid data
+    localStorage.removeItem("auth_user")
+    return null
+  }
 }
 
 export function logout() {
