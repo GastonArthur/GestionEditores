@@ -218,4 +218,3 @@ SELECT
   (SELECT COUNT(*) FROM profiles WHERE role = 'editor' AND is_active = true) as active_editors,
   (SELECT COUNT(*) FROM clients WHERE is_active = true) as active_clients,
   (SELECT COALESCE(SUM(editor_payment), 0) FROM tasks WHERE payment_made = false AND status = 'completed') as pending_payments;
-

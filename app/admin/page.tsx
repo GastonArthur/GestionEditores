@@ -1,14 +1,67 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { StatsCard } from "@/components/stats-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, Users, FolderKanban, CheckSquare, TrendingUp, CreditCard, AlertCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DollarSign,
+  Users,
+  FolderKanban,
+  CheckSquare,
+  TrendingUp,
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  AlertCircle,
+  Clock,
+  UserX,
+  Check,
+  Eye,
+  Settings,
+  User,
+} from "lucide-react"
+import type { Client, Profile, Project, PaymentFrequency } from "@/lib/types"
+import { EDITOR_SECTIONS } from "@/lib/types"
+import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
+// Types
 interface Stats {
   totalRevenue: number
   totalPayments: number
@@ -19,206 +72,992 @@ interface Stats {
   pendingTasks: number
 }
 
-interface Alert {
+interface InboxItem {
   id: string
-  type: "overdue" | "payment_pending" | "no_editor"
+  type: "overdue" | "payment_client" | "payment_editor" | "no_editor"
+  project: Project
   message: string
-  link: string
 }
 
+// Loading Component
+const Loading = () => null
+
+// Main Component
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
+  
+  // Data states
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [editors, setEditors] = useState<Profile[]>([])
+  const [userSections, setUserSections] = useState<Record<string, string[]>>({})
+  
+  // Search states
+  const [projectSearch, setProjectSearch] = useState("")
+  const [clientSearch, setClientSearch] = useState("")
+  const [editorSearch, setEditorSearch] = useState("")
+  
+  // Dialog states
+  const [projectDialog, setProjectDialog] = useState(false)
+  const [clientDialog, setClientDialog] = useState(false)
+  const [editorDialog, setEditorDialog] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState<{type: string, item: any} | null>(null)
+  const [viewProject, setViewProject] = useState<Project | null>(null)
+  
+  // Form states
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [editingEditor, setEditingEditor] = useState<Profile | null>(null)
+  const [saving, setSaving] = useState(false)
+  
+  // Form data
+  const [projectForm, setProjectForm] = useState({
+    title: "", description: "", client_id: "", editor_id: "", 
+    billed_amount: "", editor_payment: "", status: "pending", due_date: ""
+  })
+  const [clientForm, setClientForm] = useState({
+    name: "", email: "", phone: "", company: "", notes: ""
+  })
+  const [editorForm, setEditorForm] = useState({
+    username: "", password_hash: "", full_name: "", email: "", phone: "", 
+    payment_frequency: "semanal" as PaymentFrequency
+  })
+
+  // Load all data
+  const loadData = useCallback(async () => {
+    try {
+      const supabase = createClient()
+      
+      const [
+        { data: projectsData },
+        { data: clientsData },
+        { data: editorsData },
+        { data: sectionsData }
+      ] = await Promise.all([
+        supabase.from("projects").select("*, client:clients(*), editor:profiles(*)").order("created_at", { ascending: false }),
+        supabase.from("clients").select("*").eq("is_active", true).order("name"),
+        supabase.from("profiles").select("*").eq("role", "editor").eq("is_active", true).order("full_name"),
+        supabase.from("user_sections").select("*")
+      ])
+
+      setProjects(projectsData || [])
+      setClients(clientsData || [])
+      setEditors(editorsData || [])
+
+      // Organize sections by user
+      const sections: Record<string, string[]> = {}
+      sectionsData?.forEach((s) => {
+        if (!sections[s.user_id]) sections[s.user_id] = []
+        if (s.is_visible) sections[s.user_id].push(s.section_key)
+      })
+      setUserSections(sections)
+
+      // Calculate stats
+      const totalRevenue = projectsData?.filter((p) => p.payment_received).reduce((sum, p) => sum + Number(p.billed_amount || 0), 0) || 0
+      const totalPayments = projectsData?.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
+      const activeProjects = projectsData?.filter((p) => !["completed", "cancelled"].includes(p.status)).length || 0
+
+      setStats({
+        totalRevenue,
+        totalPayments,
+        netProfit: totalRevenue - totalPayments,
+        clientsCount: clientsData?.length || 0,
+        editorsCount: editorsData?.length || 0,
+        activeProjects,
+        pendingTasks: 0,
+      })
+
+      // Generate inbox items
+      const today = new Date().toISOString().split("T")[0]
+      const items: InboxItem[] = []
+      projectsData?.forEach((p) => {
+        if (p.due_date && p.due_date < today && p.status !== "completed") {
+          items.push({ id: `overdue-${p.id}`, type: "overdue", project: p, message: `Vencido` })
+        }
+        if (p.status === "completed" && !p.payment_received) {
+          items.push({ id: `payment-client-${p.id}`, type: "payment_client", project: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
+        }
+        if (p.status === "completed" && !p.payment_made && p.editor_id) {
+          items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", project: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
+        }
+        if (!p.editor_id && !["completed", "cancelled"].includes(p.status)) {
+          items.push({ id: `no-editor-${p.id}`, type: "no_editor", project: p, message: "Sin editor" })
+        }
+      })
+      setInboxItems(items)
+
+    } catch (error) {
+      console.error("Error loading data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const supabase = createClient()
+    loadData()
+  }, [loadData])
 
-        const [{ data: projects }, { count: clientsCount }, { count: editorsCount }, { count: pendingTasksCount }] =
-          await Promise.all([
-            supabase.from("projects").select("*"),
-            supabase.from("clients").select("*", { count: "exact", head: true }).eq("is_active", true),
-            supabase
-              .from("profiles")
-              .select("*", { count: "exact", head: true })
-              .eq("role", "editor")
-              .eq("is_active", true),
-            supabase.from("tasks").select("*", { count: "exact", head: true }).neq("status", "completed"),
-          ])
+  // Project handlers
+  const openProjectDialog = (project?: Project) => {
+    if (project) {
+      setEditingProject(project)
+      setProjectForm({
+        title: project.title,
+        description: project.description || "",
+        client_id: project.client_id || "",
+        editor_id: project.editor_id || "",
+        billed_amount: String(project.billed_amount || ""),
+        editor_payment: String(project.editor_payment || ""),
+        status: project.status,
+        due_date: project.due_date || ""
+      })
+    } else {
+      setEditingProject(null)
+      setProjectForm({ title: "", description: "", client_id: "", editor_id: "", billed_amount: "", editor_payment: "", status: "pending", due_date: "" })
+    }
+    setProjectDialog(true)
+  }
 
-        const totalRevenue =
-          projects?.filter((p) => p.payment_received).reduce((sum, p) => sum + Number(p.billed_amount || 0), 0) || 0
-        const totalPayments =
-          projects?.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
-        const activeProjects = projects?.filter((p) => !["completed", "cancelled"].includes(p.status)).length || 0
-
-        setStats({
-          totalRevenue,
-          totalPayments,
-          netProfit: totalRevenue - totalPayments,
-          clientsCount: clientsCount || 0,
-          editorsCount: editorsCount || 0,
-          activeProjects,
-          pendingTasks: pendingTasksCount || 0,
-        })
-
-        // Generar alertas
-        const newAlerts: Alert[] = []
-        const today = new Date().toISOString().split("T")[0]
-
-        projects?.forEach((p) => {
-          if (p.due_date && p.due_date < today && p.status !== "completed") {
-            newAlerts.push({
-              id: `overdue-${p.id}`,
-              type: "overdue",
-              message: `"${p.title}" está vencido`,
-              link: `/admin/projects/${p.id}`,
-            })
-          }
-          if (p.status === "completed" && !p.payment_received) {
-            newAlerts.push({
-              id: `payment-${p.id}`,
-              type: "payment_pending",
-              message: `Cobro pendiente: "${p.title}"`,
-              link: `/admin/projects/${p.id}`,
-            })
-          }
-          if (!p.editor_id && p.status !== "completed") {
-            newAlerts.push({
-              id: `no-editor-${p.id}`,
-              type: "no_editor",
-              message: `Sin editor: "${p.title}"`,
-              link: `/admin/projects/${p.id}`,
-            })
-          }
-        })
-
-        setAlerts(newAlerts.slice(0, 5))
-      } catch (error) {
-        console.error("Error loading admin dashboard data:", error)
-        // Set empty stats to avoid crashes
-        setStats({
-          totalRevenue: 0,
-          totalPayments: 0,
-          netProfit: 0,
-          clientsCount: 0,
-          editorsCount: 0,
-          activeProjects: 0,
-          pendingTasks: 0,
-        })
-      } finally {
-        setLoading(false)
-      }
+  const saveProject = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    const data = {
+      ...projectForm,
+      client_id: projectForm.client_id || null,
+      editor_id: projectForm.editor_id || null,
+      billed_amount: Number(projectForm.billed_amount) || 0,
+      editor_payment: Number(projectForm.editor_payment) || 0,
+      due_date: projectForm.due_date || null
     }
 
+    if (editingProject) {
+      await supabase.from("projects").update(data).eq("id", editingProject.id)
+    } else {
+      await supabase.from("projects").insert(data)
+    }
+    
+    setSaving(false)
+    setProjectDialog(false)
     loadData()
-  }, [])
+  }
+
+  // Client handlers
+  const openClientDialog = (client?: Client) => {
+    if (client) {
+      setEditingClient(client)
+      setClientForm({ name: client.name, email: client.email || "", phone: client.phone || "", company: client.company || "", notes: client.notes || "" })
+    } else {
+      setEditingClient(null)
+      setClientForm({ name: "", email: "", phone: "", company: "", notes: "" })
+    }
+    setClientDialog(true)
+  }
+
+  const saveClient = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    
+    if (editingClient) {
+      await supabase.from("clients").update(clientForm).eq("id", editingClient.id)
+    } else {
+      await supabase.from("clients").insert(clientForm)
+    }
+    
+    setSaving(false)
+    setClientDialog(false)
+    loadData()
+  }
+
+  // Editor handlers
+  const openEditorDialog = (editor?: Profile) => {
+    if (editor) {
+      setEditingEditor(editor)
+      setEditorForm({
+        username: editor.username,
+        password_hash: "",
+        full_name: editor.full_name,
+        email: editor.email || "",
+        phone: editor.phone || "",
+        payment_frequency: editor.payment_frequency || "semanal"
+      })
+    } else {
+      setEditingEditor(null)
+      setEditorForm({ username: "", password_hash: "", full_name: "", email: "", phone: "", payment_frequency: "semanal" })
+    }
+    setEditorDialog(true)
+  }
+
+  const saveEditor = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    const data = { ...editorForm }
+    if (!data.password_hash && editingEditor) {
+      delete (data as any).password_hash
+    }
+
+    if (editingEditor) {
+      await supabase.from("profiles").update(data).eq("id", editingEditor.id)
+    } else {
+      await supabase.from("profiles").insert({ ...data, role: "editor" })
+    }
+    
+    setSaving(false)
+    setEditorDialog(false)
+    loadData()
+  }
+
+  // Delete handler
+  const handleDelete = async () => {
+    if (!deleteDialog) return
+    const supabase = createClient()
+    
+    if (deleteDialog.type === "project") {
+      await supabase.from("projects").delete().eq("id", deleteDialog.item.id)
+    } else if (deleteDialog.type === "client") {
+      await supabase.from("clients").update({ is_active: false }).eq("id", deleteDialog.item.id)
+    } else if (deleteDialog.type === "editor") {
+      await supabase.from("profiles").update({ is_active: false }).eq("id", deleteDialog.item.id)
+    }
+    
+    setDeleteDialog(null)
+    loadData()
+  }
+
+  // Inbox action
+  const markAsResolved = async (item: InboxItem) => {
+    const supabase = createClient()
+    const updates: Record<string, boolean> = {}
+    if (item.type === "payment_client") updates.payment_received = true
+    if (item.type === "payment_editor") updates.payment_made = true
+
+    if (Object.keys(updates).length > 0) {
+      await supabase.from("projects").update(updates).eq("id", item.project.id)
+      loadData()
+    }
+  }
+
+  // Toggle section permission
+  const toggleSection = async (userId: string, sectionKey: string, isVisible: boolean) => {
+    const supabase = createClient()
+    await supabase.from("user_sections").upsert(
+      { user_id: userId, section_key: sectionKey, is_visible: isVisible },
+      { onConflict: "user_id,section_key" }
+    )
+    setUserSections((prev) => {
+      const userSects = prev[userId] || []
+      if (isVisible) {
+        return { ...prev, [userId]: [...userSects, sectionKey] }
+      } else {
+        return { ...prev, [userId]: userSects.filter((s) => s !== sectionKey) }
+      }
+    })
+  }
+
+  // Filter functions
+  const filteredProjects = projects.filter(p => 
+    p.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
+    p.client?.name?.toLowerCase().includes(projectSearch.toLowerCase())
+  )
+  const filteredClients = clients.filter(c => 
+    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.company?.toLowerCase().includes(clientSearch.toLowerCase())
+  )
+  const filteredEditors = editors.filter(e => 
+    e.full_name.toLowerCase().includes(editorSearch.toLowerCase()) ||
+    e.username.toLowerCase().includes(editorSearch.toLowerCase())
+  )
+
+  const statusColors: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  }
+  const statusLabels: Record<string, string> = {
+    pending: "Pendiente", in_progress: "En Progreso", completed: "Completado", cancelled: "Cancelado"
+  }
+  const frequencyLabels: Record<string, string> = {
+    diario: "Diario", semanal: "Semanal", quincenal: "Quincenal", mensual: "Mensual", por_proyecto: "Por proyecto"
+  }
+
+  useSearchParams()
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
+      <Suspense fallback={<Loading />}>
+        <div className="flex h-full items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </Suspense>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Vista general de tu negocio</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Panel de Control</h1>
+          <p className="text-muted-foreground">Gestiona todo tu negocio desde un solo lugar</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => openProjectDialog()} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Proyecto
+          </Button>
+          <Button onClick={() => openClientDialog()} variant="outline" size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Cliente
+          </Button>
+          <Button onClick={() => openEditorDialog()} variant="outline" size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Editor
+          </Button>
+        </div>
       </div>
 
-      {/* Alertas */}
-      {alerts.length > 0 && (
-        <Card className="border-destructive/50 bg-destructive/5">
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Ingresos</p>
+                <p className="text-2xl font-bold">${stats?.totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                <DollarSign className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pagos</p>
+                <p className="text-2xl font-bold">${stats?.totalPayments.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Ganancia</p>
+                <p className="text-2xl font-bold">${stats?.netProfit.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <FolderKanban className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Proyectos</p>
+                <p className="text-2xl font-bold">{stats?.activeProjects}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                <Users className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Clientes</p>
+                <p className="text-2xl font-bold">{stats?.clientsCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-cyan-100 dark:bg-cyan-900 rounded-lg">
+                <User className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Editores</p>
+                <p className="text-2xl font-bold">{stats?.editorsCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alerts/Inbox */}
+      {inboxItems.length > 0 && (
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              Alertas ({alerts.length})
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              Pendientes ({inboxItems.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {alerts.map((alert) => (
-                <Link key={alert.id} href={alert.link}>
-                  <div className="flex items-center justify-between p-2 rounded-md hover:bg-destructive/10 transition-colors">
-                    <span className="text-sm">{alert.message}</span>
-                    <Badge
-                      variant={
-                        alert.type === "overdue"
-                          ? "destructive"
-                          : alert.type === "payment_pending"
-                            ? "default"
-                            : "secondary"
-                      }
+            <div className="flex flex-wrap gap-2">
+              {inboxItems.slice(0, 6).map((item) => (
+                <Badge 
+                  key={item.id} 
+                  variant="outline" 
+                  className="cursor-pointer hover:bg-background flex items-center gap-2 py-1.5"
+                  onClick={() => setViewProject(item.project)}
+                >
+                  {item.type === "overdue" && <Clock className="h-3 w-3 text-destructive" />}
+                  {item.type === "payment_client" && <DollarSign className="h-3 w-3 text-green-600" />}
+                  {item.type === "payment_editor" && <DollarSign className="h-3 w-3 text-orange-600" />}
+                  {item.type === "no_editor" && <UserX className="h-3 w-3 text-muted-foreground" />}
+                  <span className="max-w-[150px] truncate">{item.project.title}</span>
+                  {(item.type === "payment_client" || item.type === "payment_editor") && (
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-5 w-5 p-0"
+                      onClick={(e) => { e.stopPropagation(); markAsResolved(item) }}
                     >
-                      {alert.type === "overdue" ? "Vencido" : alert.type === "payment_pending" ? "Cobro" : "Sin editor"}
-                    </Badge>
-                  </div>
-                </Link>
+                      <Check className="h-3 w-3" />
+                    </Button>
+                  )}
+                </Badge>
               ))}
+              {inboxItems.length > 6 && (
+                <Badge variant="secondary">+{inboxItems.length - 6} más</Badge>
+              )}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        <StatsCard
-          title="Ingresos"
-          value={`$${stats?.totalRevenue.toLocaleString()}`}
-          icon={DollarSign}
-          description="Cobrado"
-        />
-        <StatsCard
-          title="Pagos"
-          value={`$${stats?.totalPayments.toLocaleString()}`}
-          icon={CreditCard}
-          description="A editores"
-        />
-        <StatsCard
-          title="Ganancia"
-          value={`$${stats?.netProfit.toLocaleString()}`}
-          icon={TrendingUp}
-          description="Neta"
-        />
-        <StatsCard title="Clientes" value={stats?.clientsCount || 0} icon={Users} description="Activos" />
-        <StatsCard title="Editores" value={stats?.editorsCount || 0} icon={Users} description="Activos" />
-        <StatsCard title="Proyectos" value={stats?.activeProjects || 0} icon={FolderKanban} description="Activos" />
-        <StatsCard title="Tareas" value={stats?.pendingTasks || 0} icon={CheckSquare} description="Pendientes" />
-      </div>
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="overview">Proyectos</TabsTrigger>
+          <TabsTrigger value="clients">Clientes</TabsTrigger>
+          <TabsTrigger value="editors">Editores</TabsTrigger>
+          <TabsTrigger value="settings">Permisos</TabsTrigger>
+        </TabsList>
 
-      {/* Acciones rápidas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Acciones rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/admin/projects/new">
-              <Button variant="outline" size="sm">
-                <FolderKanban className="h-4 w-4 mr-2" />
-                Nuevo proyecto
-              </Button>
-            </Link>
-            <Link href="/admin/clients/new">
-              <Button variant="outline" size="sm">
-                <Users className="h-4 w-4 mr-2" />
-                Nuevo cliente
-              </Button>
-            </Link>
-            <Link href="/admin/inbox">
-              <Button variant="outline" size="sm">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Ver bandeja
-              </Button>
-            </Link>
+        {/* Projects Tab */}
+        <TabsContent value="overview" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle>Proyectos</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar..."
+                      value={projectSearch}
+                      onChange={(e) => setProjectSearch(e.target.value)}
+                      className="pl-9 w-[200px]"
+                    />
+                  </div>
+                  <Button onClick={() => openProjectDialog()} size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Proyecto</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Editor</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                      <TableHead className="w-[100px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProjects.map((project) => (
+                      <TableRow key={project.id}>
+                        <TableCell className="font-medium">{project.title}</TableCell>
+                        <TableCell>{project.client?.name || "-"}</TableCell>
+                        <TableCell>{project.editor?.full_name || "-"}</TableCell>
+                        <TableCell>
+                          <Badge className={statusColors[project.status]}>
+                            {statusLabels[project.status]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">${Number(project.billed_amount || 0).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewProject(project)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openProjectDialog(project)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteDialog({type: "project", item: project})}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredProjects.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No hay proyectos
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Clients Tab */}
+        <TabsContent value="clients" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle>Clientes</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar..."
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      className="pl-9 w-[200px]"
+                    />
+                  </div>
+                  <Button onClick={() => openClientDialog()} size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead className="w-[100px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClients.map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">{client.name}</TableCell>
+                        <TableCell>{client.company || "-"}</TableCell>
+                        <TableCell>{client.phone || "-"}</TableCell>
+                        <TableCell>{client.email || "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openClientDialog(client)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteDialog({type: "client", item: client})}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No hay clientes
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Editors Tab */}
+        <TabsContent value="editors" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle>Editores</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar..."
+                      value={editorSearch}
+                      onChange={(e) => setEditorSearch(e.target.value)}
+                      className="pl-9 w-[200px]"
+                    />
+                  </div>
+                  <Button onClick={() => openEditorDialog()} size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Usuario</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Pago</TableHead>
+                      <TableHead className="w-[100px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEditors.map((editor) => (
+                      <TableRow key={editor.id}>
+                        <TableCell className="font-medium">{editor.full_name}</TableCell>
+                        <TableCell>{editor.username}</TableCell>
+                        <TableCell>{editor.phone || "-"}</TableCell>
+                        <TableCell>{editor.email || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{frequencyLabels[editor.payment_frequency || "semanal"]}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditorDialog(editor)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteDialog({type: "editor", item: editor})}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredEditors.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No hay editores
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Settings/Permissions Tab */}
+        <TabsContent value="settings" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Permisos de Editores
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {editors.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No hay editores registrados</p>
+              ) : (
+                <div className="space-y-6">
+                  {editors.map((editor) => (
+                    <div key={editor.id} className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <span className="font-medium">{editor.full_name}</span>
+                        <Badge variant="outline">{editor.username}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pl-6">
+                        {EDITOR_SECTIONS.map((section) => (
+                          <div key={section.key} className="flex items-center gap-2">
+                            <Switch
+                              id={`${editor.id}-${section.key}`}
+                              checked={userSections[editor.id]?.includes(section.key) ?? true}
+                              onCheckedChange={(checked) => toggleSection(editor.id, section.key, checked)}
+                            />
+                            <Label htmlFor={`${editor.id}-${section.key}`} className="text-sm">
+                              {section.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                      <Separator />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Project Dialog */}
+      <Dialog open={projectDialog} onOpenChange={setProjectDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingProject ? "Editar Proyecto" : "Nuevo Proyecto"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="p-title">Título *</Label>
+              <Input id="p-title" value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="p-desc">Descripción</Label>
+              <Textarea id="p-desc" rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Cliente</Label>
+                <Select value={projectForm.client_id} onValueChange={(v) => setProjectForm({ ...projectForm, client_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Editor</Label>
+                <Select value={projectForm.editor_id} onValueChange={(v) => setProjectForm({ ...projectForm, editor_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {editors.map((e) => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="p-billed">Monto a Cobrar</Label>
+                <Input id="p-billed" type="number" value={projectForm.billed_amount} onChange={(e) => setProjectForm({ ...projectForm, billed_amount: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="p-payment">Pago al Editor</Label>
+                <Input id="p-payment" type="number" value={projectForm.editor_payment} onChange={(e) => setProjectForm({ ...projectForm, editor_payment: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Estado</Label>
+                <Select value={projectForm.status} onValueChange={(v) => setProjectForm({ ...projectForm, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="in_progress">En Progreso</SelectItem>
+                    <SelectItem value="completed">Completado</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="p-due">Fecha de Entrega</Label>
+                <Input id="p-due" type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} />
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProjectDialog(false)}>Cancelar</Button>
+            <Button onClick={saveProject} disabled={saving || !projectForm.title}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Dialog */}
+      <Dialog open={clientDialog} onOpenChange={setClientDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingClient ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="c-name">Nombre *</Label>
+              <Input id="c-name" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="c-company">Empresa</Label>
+              <Input id="c-company" value={clientForm.company} onChange={(e) => setClientForm({ ...clientForm, company: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="c-phone">Teléfono</Label>
+                <Input id="c-phone" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="c-email">Email</Label>
+                <Input id="c-email" type="email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="c-notes">Notas</Label>
+              <Textarea id="c-notes" rows={3} value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClientDialog(false)}>Cancelar</Button>
+            <Button onClick={saveClient} disabled={saving || !clientForm.name}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editor Dialog */}
+      <Dialog open={editorDialog} onOpenChange={setEditorDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingEditor ? "Editar Editor" : "Nuevo Editor"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="e-name">Nombre *</Label>
+                <Input id="e-name" value={editorForm.full_name} onChange={(e) => setEditorForm({ ...editorForm, full_name: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="e-user">Usuario *</Label>
+                <Input id="e-user" value={editorForm.username} onChange={(e) => setEditorForm({ ...editorForm, username: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="e-pass">{editingEditor ? "Nueva Contraseña (dejar vacío para mantener)" : "Contraseña *"}</Label>
+              <Input id="e-pass" type="password" value={editorForm.password_hash} onChange={(e) => setEditorForm({ ...editorForm, password_hash: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="e-phone">Teléfono</Label>
+                <Input id="e-phone" value={editorForm.phone} onChange={(e) => setEditorForm({ ...editorForm, phone: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="e-email">Email</Label>
+                <Input id="e-email" type="email" value={editorForm.email} onChange={(e) => setEditorForm({ ...editorForm, email: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Frecuencia de Pago</Label>
+              <Select value={editorForm.payment_frequency} onValueChange={(v) => setEditorForm({ ...editorForm, payment_frequency: v as PaymentFrequency })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="diario">Diario</SelectItem>
+                  <SelectItem value="semanal">Semanal</SelectItem>
+                  <SelectItem value="quincenal">Quincenal</SelectItem>
+                  <SelectItem value="mensual">Mensual</SelectItem>
+                  <SelectItem value="por_proyecto">Por proyecto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditorDialog(false)}>Cancelar</Button>
+            <Button onClick={saveEditor} disabled={saving || !editorForm.full_name || !editorForm.username || (!editingEditor && !editorForm.password_hash)}>
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Project Dialog */}
+      <Dialog open={!!viewProject} onOpenChange={() => setViewProject(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{viewProject?.title}</DialogTitle>
+          </DialogHeader>
+          {viewProject && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Cliente</p>
+                  <p className="font-medium">{viewProject.client?.name || "Sin asignar"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Editor</p>
+                  <p className="font-medium">{viewProject.editor?.full_name || "Sin asignar"}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Monto a Cobrar</p>
+                  <p className="font-medium">${Number(viewProject.billed_amount || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Pago al Editor</p>
+                  <p className="font-medium">${Number(viewProject.editor_payment || 0).toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Estado</p>
+                  <Badge className={statusColors[viewProject.status]}>{statusLabels[viewProject.status]}</Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Fecha de Entrega</p>
+                  <p className="font-medium">{viewProject.due_date || "Sin fecha"}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className={`h-4 w-4 ${viewProject.payment_received ? "text-green-600" : "text-muted-foreground"}`} />
+                  <span className="text-sm">{viewProject.payment_received ? "Pago recibido" : "Pago pendiente"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckSquare className={`h-4 w-4 ${viewProject.payment_made ? "text-green-600" : "text-muted-foreground"}`} />
+                  <span className="text-sm">{viewProject.payment_made ? "Editor pagado" : "Editor sin pagar"}</span>
+                </div>
+              </div>
+              {viewProject.description && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Descripción</p>
+                  <p className="text-sm">{viewProject.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewProject(null)}>Cerrar</Button>
+            <Button onClick={() => { openProjectDialog(viewProject!); setViewProject(null) }}>Editar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este elemento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
