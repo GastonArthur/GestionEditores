@@ -991,6 +991,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+      </Tabs>
 
         {/* Project Dialog */}
         <Dialog open={projectDialog} onOpenChange={setProjectDialog}>
