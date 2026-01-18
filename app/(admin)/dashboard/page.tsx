@@ -377,7 +377,7 @@ export default function AdminDashboard() {
     if (editor) {
       setEditingEditor(editor)
       setEditorForm({
-        username: editor.username,
+        username: editor.username || "",
         password_hash: "",
         full_name: editor.full_name,
         email: editor.email || "",
@@ -958,11 +958,11 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {editors.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No hay editores registrados</p>
+              {editors.filter(e => e.username).length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No hay editores con acceso al sistema</p>
               ) : (
                 <div className="space-y-6">
-                  {editors.map((editor) => (
+                  {editors.filter(e => e.username).map((editor) => (
                     <div key={editor.id} className="space-y-3">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4" />

@@ -5,8 +5,8 @@ export type TaskStatus = "pending" | "in_progress" | "completed"
 
 export interface Profile {
   id: string
-  username: string
-  password_hash?: string
+  username?: string | null
+  password_hash?: string | null
   full_name: string
   email?: string
   phone?: string

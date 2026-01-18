@@ -39,7 +39,7 @@ export default function SettingsPage() {
         supabase.from("project_templates").select("*").eq("is_active", true),
       ])
 
-    setEditors(editorsData || [])
+    setEditors((editorsData || []).filter((editor) => editor.username))
     setTemplates(templatesData || [])
     setLogs(logsData || [])
 

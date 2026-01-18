@@ -36,7 +36,7 @@ export function EditorColumn({ editor, tasks }: { editor: Editor; tasks: Task[] 
   const completedTasks = tasks.filter((t) => t.status === "completed")
 
   return (
-    <Card className="min-w-[380px] flex-shrink-0">
+    <Card className="h-full flex flex-col">
       <CardHeader className="bg-muted/50">
         <CardTitle className="text-lg flex items-center justify-between">
           <span>{editor.full_name}</span>

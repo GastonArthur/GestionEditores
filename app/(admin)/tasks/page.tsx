@@ -40,9 +40,10 @@ export default async function TasksPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {editors.map((editor) => {
-            const editorTasks = tasks?.filter((task) => task.editor_id === editor.id) || []
+            const editorTasks =
+              tasks?.filter((task) => task.editor_id === editor.id && task.status !== "completed") || []
             return <EditorColumn key={editor.id} editor={editor} tasks={editorTasks} />
           })}
         </div>

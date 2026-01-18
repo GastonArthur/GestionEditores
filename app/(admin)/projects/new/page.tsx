@@ -49,10 +49,17 @@ export default function NewProjectPage() {
       } = await supabase.auth.getUser()
 
       const { error: insertError } = await supabase.from("projects").insert({
-        ...formData,
+        title: formData.title,
+        description: formData.description,
         client_id: formData.client_id || null,
+        status: formData.status,
         price: Number(formData.price),
         created_by: user?.id,
+        // The following fields are in the form but likely missing in the DB schema, causing the 400 error.
+        // To save them, run scripts/08-add-payment-methods-to-projects.sql in Supabase.
+        // currency: formData.currency,
+        // payment_method_in: formData.payment_method_in,
+        // payment_method_out: formData.payment_method_out,
       })
 
       if (insertError) {
