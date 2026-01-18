@@ -16,7 +16,6 @@ interface Task {
   priority: string
   due_date: string | null
   project?: { title: string }
-  client?: { name: string }
   editor_id?: string
 }
 
@@ -26,7 +25,6 @@ interface Project {
   status: string
   editor_payment: number | null
   payment_made: boolean
-  client?: { name: string }
   editor_id?: string
 }
 
@@ -47,10 +45,10 @@ export default function EditorDashboard() {
         const [{ data: tasksData }, { data: projectsData }] = await Promise.all([
           supabase
             .from("tasks")
-            .select("*, project:projects(title), client:clients(name)")
+            .select("*, project:projects(title)")
             .eq("editor_id", user.id)
             .order("due_date", { ascending: true }),
-          supabase.from("projects").select("*, client:clients(name)").eq("editor_id", user.id),
+          supabase.from("projects").select("*").eq("editor_id", user.id),
         ])
 
         setTasks((tasksData as any) || [])
@@ -170,7 +168,6 @@ export default function EditorDashboard() {
                     </div>
                     <div className="text-sm text-muted-foreground mt-1">
                       {task.project?.title && <span>Proyecto: {task.project.title}</span>}
-                      {task.client?.name && <span> | Cliente: {task.client.name}</span>}
                     </div>
                   </div>
                   {task.due_date && (
@@ -209,9 +206,6 @@ export default function EditorDashboard() {
                         <Badge variant={project.status === "entregado" ? "default" : "secondary"}>
                           {project.status.replace("_", " ")}
                         </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Cliente: {project.client?.name || "Sin cliente"}
                       </div>
                     </div>
                     <div className="text-right">

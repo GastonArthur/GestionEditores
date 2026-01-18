@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from "date-fns"
+import { es } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -55,6 +60,7 @@ import {
   Eye,
   Settings,
   User,
+  Calendar as CalendarIcon,
 } from "lucide-react"
 import type { Client, Profile, Project, PaymentFrequency } from "@/lib/types"
 import { EDITOR_SECTIONS } from "@/lib/types"
@@ -79,6 +85,8 @@ interface InboxItem {
   message: string
 }
 
+type DateFilterType = "all" | "today" | "week" | "month" | "custom"
+
 // Loading Component
 const Loading = () => null
 
@@ -88,12 +96,17 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   
   // Data states
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [inboxItems, setInboxItems] = useState<InboxItem[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [editors, setEditors] = useState<Profile[]>([])
   const [userSections, setUserSections] = useState<Record<string, string[]>>({})
+  
+  // Filter states
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("all")
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  })
   
   // Search states
   const [projectSearch, setProjectSearch] = useState("")
@@ -155,40 +168,6 @@ export default function AdminDashboard() {
       })
       setUserSections(sections)
 
-      // Calculate stats
-      const totalRevenue = projectsData?.filter((p) => p.payment_received).reduce((sum, p) => sum + Number(p.billed_amount || 0), 0) || 0
-      const totalPayments = projectsData?.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
-      const activeProjects = projectsData?.filter((p) => !["completed", "cancelled"].includes(p.status)).length || 0
-
-      setStats({
-        totalRevenue,
-        totalPayments,
-        netProfit: totalRevenue - totalPayments,
-        clientsCount: clientsData?.length || 0,
-        editorsCount: editorsData?.length || 0,
-        activeProjects,
-        pendingTasks: 0,
-      })
-
-      // Generate inbox items
-      const today = new Date().toISOString().split("T")[0]
-      const items: InboxItem[] = []
-      projectsData?.forEach((p) => {
-        if (p.due_date && p.due_date < today && p.status !== "completed") {
-          items.push({ id: `overdue-${p.id}`, type: "overdue", project: p, message: `Vencido` })
-        }
-        if (p.status === "completed" && !p.payment_received) {
-          items.push({ id: `payment-client-${p.id}`, type: "payment_client", project: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
-        }
-        if (p.status === "completed" && !p.payment_made && p.editor_id) {
-          items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", project: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
-        }
-        if (!p.editor_id && !["completed", "cancelled"].includes(p.status)) {
-          items.push({ id: `no-editor-${p.id}`, type: "no_editor", project: p, message: "Sin editor" })
-        }
-      })
-      setInboxItems(items)
-
     } catch (error) {
       console.error("Error loading data:", error)
     } finally {
@@ -199,6 +178,86 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Filter Projects by Date
+  const dateFilteredProjects = useMemo(() => {
+    if (dateFilter === "all") return projects
+
+    const now = new Date()
+    let start: Date, end: Date
+
+    switch (dateFilter) {
+      case "today":
+        start = startOfDay(now)
+        end = endOfDay(now)
+        break
+      case "week":
+        start = startOfWeek(now, { weekStartsOn: 1 }) // Monday start
+        end = endOfWeek(now, { weekStartsOn: 1 })
+        break
+      case "month":
+        start = startOfMonth(now)
+        end = endOfMonth(now)
+        break
+      case "custom":
+        if (!dateRange.from) return projects
+        start = startOfDay(dateRange.from)
+        end = endOfDay(dateRange.to || dateRange.from)
+        break
+      default:
+        return projects
+    }
+
+    return projects.filter(p => {
+      // Use created_at for filtering by default
+      const date = parseISO(p.created_at)
+      return isWithinInterval(date, { start, end })
+    })
+  }, [projects, dateFilter, dateRange])
+
+  // Calculate Stats based on filtered projects
+  const stats: Stats = useMemo(() => {
+    const totalRevenue = dateFilteredProjects
+      .filter((p) => p.payment_received)
+      .reduce((sum, p) => sum + Number(p.billed_amount || 0), 0)
+    
+    const totalPayments = dateFilteredProjects
+      .filter((p) => p.payment_made)
+      .reduce((sum, p) => sum + Number(p.editor_payment || 0), 0)
+    
+    const activeProjects = projects.filter((p) => !["completed", "cancelled"].includes(p.status)).length
+
+    return {
+      totalRevenue,
+      totalPayments,
+      netProfit: totalRevenue - totalPayments,
+      clientsCount: clients.length,
+      editorsCount: editors.length,
+      activeProjects,
+      pendingTasks: 0,
+    }
+  }, [dateFilteredProjects, projects, clients.length, editors.length])
+
+  // Inbox items (always based on all active projects)
+  const inboxItems = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0]
+    const items: InboxItem[] = []
+    projects.forEach((p) => {
+      if (p.due_date && p.due_date < today && p.status !== "completed") {
+        items.push({ id: `overdue-${p.id}`, type: "overdue", project: p, message: `Vencido` })
+      }
+      if (p.status === "completed" && !p.payment_received) {
+        items.push({ id: `payment-client-${p.id}`, type: "payment_client", project: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
+      }
+      if (p.status === "completed" && !p.payment_made && p.editor_id) {
+        items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", project: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
+      }
+      if (!p.editor_id && !["completed", "cancelled"].includes(p.status)) {
+        items.push({ id: `no-editor-${p.id}`, type: "no_editor", project: p, message: "Sin editor" })
+      }
+    })
+    return items
+  }, [projects])
 
   // Project handlers
   const openProjectDialog = (project?: Project) => {
@@ -356,8 +415,8 @@ export default function AdminDashboard() {
     })
   }
 
-  // Filter functions
-  const filteredProjects = projects.filter(p => 
+  // Display Filters
+  const filteredProjects = dateFilteredProjects.filter(p => 
     p.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
     p.client?.name?.toLowerCase().includes(projectSearch.toLowerCase())
   )
@@ -398,24 +457,79 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Panel de Control</h1>
           <p className="text-muted-foreground">Gestiona todo tu negocio desde un solo lugar</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => openProjectDialog()} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Proyecto
-          </Button>
-          <Button onClick={() => openClientDialog()} variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Cliente
-          </Button>
-          <Button onClick={() => openEditorDialog()} variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Editor
-          </Button>
+        
+        {/* Filter Controls */}
+        <div className="flex items-center gap-2">
+          <Select value={dateFilter} onValueChange={(v: DateFilterType) => setDateFilter(v)}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Periodo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todo el tiempo</SelectItem>
+              <SelectItem value="today">Hoy</SelectItem>
+              <SelectItem value="week">Esta semana</SelectItem>
+              <SelectItem value="month">Este mes</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {dateFilter === "custom" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !dateRange.from && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Seleccionar fechas</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange.from}
+                  selected={dateRange}
+                  onSelect={(range: any) => setDateRange(range)}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
+
+          <div className="flex gap-2 ml-2">
+            <Button onClick={() => openProjectDialog()} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Proyecto
+            </Button>
+            <Button onClick={() => openClientDialog()} variant="outline" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Cliente
+            </Button>
+            <Button onClick={() => openEditorDialog()} variant="outline" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Editor
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -429,7 +543,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Ingresos</p>
-                <p className="text-2xl font-bold">${stats?.totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -442,7 +556,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pagos</p>
-                <p className="text-2xl font-bold">${stats?.totalPayments.toLocaleString()}</p>
+                <p className="text-2xl font-bold">${stats.totalPayments.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -455,7 +569,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Ganancia</p>
-                <p className="text-2xl font-bold">${stats?.netProfit.toLocaleString()}</p>
+                <p className="text-2xl font-bold">${stats.netProfit.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -468,7 +582,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Proyectos</p>
-                <p className="text-2xl font-bold">{stats?.activeProjects}</p>
+                <p className="text-2xl font-bold">{dateFilteredProjects.length}</p>
               </div>
             </div>
           </CardContent>
@@ -481,7 +595,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Clientes</p>
-                <p className="text-2xl font-bold">{stats?.clientsCount}</p>
+                <p className="text-2xl font-bold">{stats.clientsCount}</p>
               </div>
             </div>
           </CardContent>
@@ -494,7 +608,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Editores</p>
-                <p className="text-2xl font-bold">{stats?.editorsCount}</p>
+                <p className="text-2xl font-bold">{stats.editorsCount}</p>
               </div>
             </div>
           </CardContent>
