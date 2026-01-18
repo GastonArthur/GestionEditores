@@ -40,21 +40,28 @@ export default function EditorDashboard() {
       const user = getAuthUser()
       if (!user) return
 
-      const supabase = createClient()
+      try {
+        const supabase = createClient()
 
-      // Obtener datos del editor
-      const [{ data: tasksData }, { data: projectsData }] = await Promise.all([
-        supabase
-          .from("tasks")
-          .select("*, project:projects(title), client:clients(name)")
-          .eq("editor_id", user.id)
-          .order("due_date", { ascending: true }),
-        supabase.from("projects").select("*, client:clients(name)").eq("editor_id", user.id),
-      ])
+        // Obtener datos del editor
+        const [{ data: tasksData }, { data: projectsData }] = await Promise.all([
+          supabase
+            .from("tasks")
+            .select("*, project:projects(title), client:clients(name)")
+            .eq("editor_id", user.id)
+            .order("due_date", { ascending: true }),
+          supabase.from("projects").select("*, client:clients(name)").eq("editor_id", user.id),
+        ])
 
-      setTasks((tasksData as any) || [])
-      setProjects((projectsData as any) || [])
-      setLoading(false)
+        setTasks((tasksData as any) || [])
+        setProjects((projectsData as any) || [])
+      } catch (error) {
+        console.error("Error loading editor dashboard data:", error)
+        setTasks([])
+        setProjects([])
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadData()

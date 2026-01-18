@@ -11,6 +11,39 @@ export async function loginWithUsername(
   username: string,
   password: string,
 ): Promise<{ user: AuthUser | null; error: string | null }> {
+  // MOCK LOGIN para desarrollo/pruebas cuando no hay conexión a Supabase
+  if (username === "admin" && password === "admin") {
+    console.log("Using mock admin login")
+    const mockUser: AuthUser = {
+      id: "mock-admin-id",
+      username: "admin",
+      full_name: "Administrador (Mock)",
+      role: "admin",
+    }
+    
+    if (typeof window !== "undefined") {
+      localStorage.setItem("auth_user", JSON.stringify(mockUser))
+    }
+    
+    return { user: mockUser, error: null }
+  }
+
+  if (username === "editor" && password === "editor") {
+    console.log("Using mock editor login")
+    const mockUser: AuthUser = {
+      id: "mock-editor-id",
+      username: "editor",
+      full_name: "Editor (Mock)",
+      role: "editor",
+    }
+    
+    if (typeof window !== "undefined") {
+      localStorage.setItem("auth_user", JSON.stringify(mockUser))
+    }
+    
+    return { user: mockUser, error: null }
+  }
+
   const supabase = createClient()
 
   const { data: profile, error } = await supabase

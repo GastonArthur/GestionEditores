@@ -33,69 +33,84 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const loadData = async () => {
-      const supabase = createClient()
+      try {
+        const supabase = createClient()
 
-      const [{ data: projects }, { count: clientsCount }, { count: editorsCount }, { count: pendingTasksCount }] =
-        await Promise.all([
-          supabase.from("projects").select("*"),
-          supabase.from("clients").select("*", { count: "exact", head: true }).eq("is_active", true),
-          supabase
-            .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .eq("role", "editor")
-            .eq("is_active", true),
-          supabase.from("tasks").select("*", { count: "exact", head: true }).neq("status", "completed"),
-        ])
+        const [{ data: projects }, { count: clientsCount }, { count: editorsCount }, { count: pendingTasksCount }] =
+          await Promise.all([
+            supabase.from("projects").select("*"),
+            supabase.from("clients").select("*", { count: "exact", head: true }).eq("is_active", true),
+            supabase
+              .from("profiles")
+              .select("*", { count: "exact", head: true })
+              .eq("role", "editor")
+              .eq("is_active", true),
+            supabase.from("tasks").select("*", { count: "exact", head: true }).neq("status", "completed"),
+          ])
 
-      const totalRevenue =
-        projects?.filter((p) => p.payment_received).reduce((sum, p) => sum + Number(p.billed_amount || 0), 0) || 0
-      const totalPayments =
-        projects?.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
-      const activeProjects = projects?.filter((p) => !["completed", "cancelled"].includes(p.status)).length || 0
+        const totalRevenue =
+          projects?.filter((p) => p.payment_received).reduce((sum, p) => sum + Number(p.billed_amount || 0), 0) || 0
+        const totalPayments =
+          projects?.filter((p) => p.payment_made).reduce((sum, p) => sum + Number(p.editor_payment || 0), 0) || 0
+        const activeProjects = projects?.filter((p) => !["completed", "cancelled"].includes(p.status)).length || 0
 
-      setStats({
-        totalRevenue,
-        totalPayments,
-        netProfit: totalRevenue - totalPayments,
-        clientsCount: clientsCount || 0,
-        editorsCount: editorsCount || 0,
-        activeProjects,
-        pendingTasks: pendingTasksCount || 0,
-      })
+        setStats({
+          totalRevenue,
+          totalPayments,
+          netProfit: totalRevenue - totalPayments,
+          clientsCount: clientsCount || 0,
+          editorsCount: editorsCount || 0,
+          activeProjects,
+          pendingTasks: pendingTasksCount || 0,
+        })
 
-      // Generar alertas
-      const newAlerts: Alert[] = []
-      const today = new Date().toISOString().split("T")[0]
+        // Generar alertas
+        const newAlerts: Alert[] = []
+        const today = new Date().toISOString().split("T")[0]
 
-      projects?.forEach((p) => {
-        if (p.due_date && p.due_date < today && p.status !== "completed") {
-          newAlerts.push({
-            id: `overdue-${p.id}`,
-            type: "overdue",
-            message: `"${p.title}" está vencido`,
-            link: `/admin/projects/${p.id}`,
-          })
-        }
-        if (p.status === "completed" && !p.payment_received) {
-          newAlerts.push({
-            id: `payment-${p.id}`,
-            type: "payment_pending",
-            message: `Cobro pendiente: "${p.title}"`,
-            link: `/admin/projects/${p.id}`,
-          })
-        }
-        if (!p.editor_id && p.status !== "completed") {
-          newAlerts.push({
-            id: `no-editor-${p.id}`,
-            type: "no_editor",
-            message: `Sin editor: "${p.title}"`,
-            link: `/admin/projects/${p.id}`,
-          })
-        }
-      })
+        projects?.forEach((p) => {
+          if (p.due_date && p.due_date < today && p.status !== "completed") {
+            newAlerts.push({
+              id: `overdue-${p.id}`,
+              type: "overdue",
+              message: `"${p.title}" está vencido`,
+              link: `/admin/projects/${p.id}`,
+            })
+          }
+          if (p.status === "completed" && !p.payment_received) {
+            newAlerts.push({
+              id: `payment-${p.id}`,
+              type: "payment_pending",
+              message: `Cobro pendiente: "${p.title}"`,
+              link: `/admin/projects/${p.id}`,
+            })
+          }
+          if (!p.editor_id && p.status !== "completed") {
+            newAlerts.push({
+              id: `no-editor-${p.id}`,
+              type: "no_editor",
+              message: `Sin editor: "${p.title}"`,
+              link: `/admin/projects/${p.id}`,
+            })
+          }
+        })
 
-      setAlerts(newAlerts.slice(0, 5))
-      setLoading(false)
+        setAlerts(newAlerts.slice(0, 5))
+      } catch (error) {
+        console.error("Error loading admin dashboard data:", error)
+        // Set empty stats to avoid crashes
+        setStats({
+          totalRevenue: 0,
+          totalPayments: 0,
+          netProfit: 0,
+          clientsCount: 0,
+          editorsCount: 0,
+          activeProjects: 0,
+          pendingTasks: 0,
+        })
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadData()
