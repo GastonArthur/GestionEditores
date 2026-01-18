@@ -8,6 +8,14 @@ import {
   LayoutDashboard,
   Video,
   ChevronDown,
+  FolderKanban,
+  CheckSquare,
+  Users,
+  DollarSign,
+  Settings,
+  Inbox,
+  UserCircle,
+  BarChart3
 } from "lucide-react"
 import {
   Collapsible,
@@ -23,7 +31,7 @@ interface SidebarProps {
 
 export function Sidebar({ role, userName }: SidebarProps) {
   const pathname = usePathname()
-  const [openSections, setOpenSections] = useState<string[]>(["general"])
+  const [openSections, setOpenSections] = useState<string[]>(["general", "management", "finance", "work"])
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => 
@@ -38,20 +46,50 @@ export function Sidebar({ role, userName }: SidebarProps) {
       key: "general",
       label: "General",
       items: [
-        { href: "/admin", label: "Panel Principal", exact: true },
+        { href: "/admin", label: "Panel Principal", icon: LayoutDashboard, exact: true },
+        { href: "/admin/inbox", label: "Bandeja de Entrada", icon: Inbox },
+      ]
+    },
+    {
+      key: "management",
+      label: "Gestión",
+      items: [
+        { href: "/admin/projects", label: "Proyectos", icon: FolderKanban },
+        { href: "/admin/tasks", label: "Tareas", icon: CheckSquare },
+        { href: "/admin/clients", label: "Clientes", icon: Users },
+        { href: "/admin/editors", label: "Editores", icon: UserCircle },
+      ]
+    },
+    {
+      key: "finance",
+      label: "Finanzas",
+      items: [
+        { href: "/admin/accounting", label: "Contabilidad", icon: DollarSign },
+      ]
+    },
+    {
+      key: "settings",
+      label: "Configuración",
+      items: [
+        { href: "/admin/settings", label: "Ajustes", icon: Settings },
       ]
     }
   ]
 
   const editorSections = [
     {
-      key: "general",
-      label: "General",
+      key: "work",
+      label: "Tareas",
       items: [
-        { href: "/editor", label: "Mi Panel", exact: true },
-        { href: "/editor/tasks", label: "Mis Tareas" },
-        { href: "/editor/projects", label: "Mis Proyectos" },
-        { href: "/editor/payments", label: "Mis Pagos" },
+        { href: "/editor/projects", label: "Mis Proyectos", icon: FolderKanban },
+        { href: "/editor/tasks", label: "Mis Tareas", icon: CheckSquare },
+      ]
+    },
+    {
+      key: "finance",
+      label: "Finanzas",
+      items: [
+        { href: "/editor/payments", label: "Mis Pagos", icon: DollarSign },
       ]
     }
   ]
@@ -104,7 +142,7 @@ export function Sidebar({ role, userName }: SidebarProps) {
                       isActive(item.href, item.exact) && "bg-secondary font-medium"
                     )}
                   >
-                    <LayoutDashboard className="h-3.5 w-3.5 mr-2" />
+                    <item.icon className="h-3.5 w-3.5 mr-2" />
                     {item.label}
                   </Button>
                 </Link>
