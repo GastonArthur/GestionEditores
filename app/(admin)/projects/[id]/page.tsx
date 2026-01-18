@@ -31,7 +31,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       )
       .eq("project_id", id)
       .order("created_at", { ascending: false }),
-    supabase.from("users").select("id, full_name, email").eq("role", "editor"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("role", "editor")
+      .eq("is_active", true),
   ])
 
   const statusLabels: Record<string, string> = {

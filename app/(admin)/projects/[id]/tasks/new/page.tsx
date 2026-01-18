@@ -31,11 +31,44 @@ export default function NewTaskPage() {
   useEffect(() => {
     const fetchEditors = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from("profiles").select("*").eq("role", "editor").order("full_name")
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "editor")
+        .eq("is_active", true)
+        .order("full_name")
       if (data) setEditors(data)
     }
+
+    const fetchProjectDefaults = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("projects")
+        .select("default_editor_price")
+        .eq("id", projectId)
+        .single()
+      
+      if (data) {
+        setProjectDefaults({ default_editor_price: data.default_editor_price })
+        if (data.default_editor_price) {
+            setFormData(prev => ({ 
+                ...prev, 
+                payment_amount: (Number(prev.video_count) * data.default_editor_price).toFixed(2) 
+            }))
+        }
+      }
+    }
+
     fetchEditors()
-  }, [])
+    fetchProjectDefaults()
+  }, [projectId])
+
+  useEffect(() => {
+    if (projectDefaults.default_editor_price) {
+        const amount = Number(formData.video_count) * projectDefaults.default_editor_price
+        setFormData(prev => ({ ...prev, payment_amount: amount.toFixed(2) }))
+    }
+  }, [formData.video_count, projectDefaults.default_editor_price])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

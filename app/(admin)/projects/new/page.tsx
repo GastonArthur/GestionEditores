@@ -148,12 +148,11 @@ export default function NewProjectPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="price">Precio</Label>
+                <Label htmlFor="price">Precio Total (Opcional)</Label>
                 <Input
                   id="price"
                   type="number"
                   step="0.01"
-                  required
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 />
@@ -173,6 +172,34 @@ export default function NewProjectPage() {
                     <SelectItem value="USD">Dólares (USD)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="default_price">Precio por Unidad (Cliente)</Label>
+                <Input
+                  id="default_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.default_price}
+                  onChange={(e) => setFormData({ ...formData, default_price: e.target.value })}
+                  placeholder="Ej. 1500.00"
+                />
+                <p className="text-xs text-muted-foreground">Se usará como valor predeterminado al crear tareas</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="default_editor_price">Precio por Unidad (Editor)</Label>
+                <Input
+                  id="default_editor_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.default_editor_price}
+                  onChange={(e) => setFormData({ ...formData, default_editor_price: e.target.value })}
+                  placeholder="Ej. 800.00"
+                />
+                <p className="text-xs text-muted-foreground">Se usará como valor predeterminado al crear tareas</p>
               </div>
             </div>
 

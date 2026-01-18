@@ -67,6 +67,8 @@ export interface Project {
   delivered_at?: string
   created_at: string
   updated_at: string
+  default_price?: number
+  default_editor_price?: number
   // Relations
   client?: Client
   editor?: Profile

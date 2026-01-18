@@ -9,7 +9,12 @@ export default async function TasksPage() {
   const supabase = await createClient()
 
   const [{ data: editors }, { data: tasks }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("role", "editor").order("full_name", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "editor")
+      .eq("is_active", true)
+      .order("full_name", { ascending: true }),
     supabase.from("tasks").select("*").order("created_at", { ascending: false }),
   ])
 

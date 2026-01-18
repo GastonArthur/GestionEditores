@@ -13,9 +13,11 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function NewTaskPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [editors, setEditors] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -26,7 +28,7 @@ export default function NewTaskPage() {
     content_quantity: 1,
     billed_amount: 0,
     editor_payment: 0,
-    billed_by: "",
+    charged_by: "",
     paid_by: "",
     payment_received: false,
     payment_made: false,
@@ -46,7 +48,12 @@ export default function NewTaskPage() {
 
   const loadEditors = async () => {
     const supabase = createClient()
-    const { data } = await supabase.from("profiles").select("*").eq("role", "editor").order("full_name")
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "editor")
+      .eq("is_active", true)
+      .order("full_name")
     if (data) setEditors(data)
   }
 
@@ -72,7 +79,18 @@ export default function NewTaskPage() {
 
     setLoading(false)
 
-    if (!error) {
+    if (error) {
+      console.error("Error creating task:", error)
+      toast({
+        title: "Error al crear la tarea",
+        description: error.message || "Ha ocurrido un error inesperado",
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Tarea creada",
+        description: "La tarea se ha creado correctamente",
+      })
       router.push("/tasks")
     }
   }
@@ -197,50 +215,6 @@ export default function NewTaskPage() {
               <p className="text-2xl font-bold text-green-600">
                 ${(formData.billed_amount - formData.editor_payment).toFixed(2)}
               </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="billed_by">Cobrado Por</Label>
-                <Input
-                  id="billed_by"
-                  placeholder="Método de cobro"
-                  value={formData.billed_by}
-                  onChange={(e) => setFormData({ ...formData, billed_by: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="paid_by">Pagado Por</Label>
-                <Input
-                  id="paid_by"
-                  placeholder="Método de pago"
-                  value={formData.paid_by}
-                  onChange={(e) => setFormData({ ...formData, paid_by: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-6">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="payment_received"
-                  checked={formData.payment_received}
-                  onCheckedChange={(checked) => setFormData({ ...formData, payment_received: checked as boolean })}
-                />
-                <Label htmlFor="payment_received" className="cursor-pointer">
-                  ¿Recibí el pago del cliente?
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="payment_made"
-                  checked={formData.payment_made}
-                  onCheckedChange={(checked) => setFormData({ ...formData, payment_made: checked as boolean })}
-                />
-                <Label htmlFor="payment_made" className="cursor-pointer">
-                  ¿Pagué al editor?
-                </Label>
-              </div>
             </div>
 
             <div className="flex gap-3 pt-4">
