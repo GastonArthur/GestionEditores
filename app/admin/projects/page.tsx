@@ -62,7 +62,10 @@ export default async function ProjectsPage() {
                 <p className="text-sm text-muted-foreground line-clamp-2">{project.description || "Sin descripción"}</p>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cliente: {project.clients?.name || "Sin asignar"}</span>
-                  <span className="font-semibold">${Number(project.price).toFixed(2)}</span>
+                  <span className="font-semibold">
+                    {project.currency === "USD" ? "US$" : "$"}
+                    {Number(project.price).toFixed(2)}
+                  </span>
                 </div>
               </CardContent>
             </Card>

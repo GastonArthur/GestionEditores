@@ -69,10 +69,31 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Precio</CardTitle>
+            <CardTitle className="text-sm">Finanzas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">${Number(project?.price || 0).toFixed(2)}</p>
+          <CardContent className="space-y-2">
+            <div>
+              <p className="text-xs text-muted-foreground">Precio</p>
+              <p className="text-2xl font-bold">
+                {project?.currency === "USD" ? "US$" : "$"}
+                {Number(project?.price || 0).toFixed(2)}
+                <span className="ml-1 text-sm font-normal text-muted-foreground">{project?.currency || "ARS"}</span>
+              </p>
+            </div>
+            {(project?.payment_method_in || project?.payment_method_out) && (
+              <div className="border-t pt-2 text-sm">
+                {project?.payment_method_in && (
+                  <p>
+                    <span className="font-medium">Cobro:</span> {project.payment_method_in}
+                  </p>
+                )}
+                {project?.payment_method_out && (
+                  <p>
+                    <span className="font-medium">Pago:</span> {project.payment_method_out}
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

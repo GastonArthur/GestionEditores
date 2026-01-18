@@ -23,6 +23,9 @@ export default function NewProjectPage() {
     client_id: "",
     price: "",
     status: "pending",
+    currency: "ARS",
+    payment_method_in: "",
+    payment_method_out: "",
   })
 
   useEffect(() => {
@@ -121,6 +124,23 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="status">Estado</Label>
+                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="in_progress">En Progreso</SelectItem>
+                    <SelectItem value="completed">Completado</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="price">Precio</Label>
                 <Input
                   id="price"
@@ -131,21 +151,59 @@ export default function NewProjectPage() {
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="currency">Moneda</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) => setFormData({ ...formData, currency: value, payment_method_in: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ARS">Pesos Argentinos (ARS)</SelectItem>
+                    <SelectItem value="USD">Dólares (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Estado</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendiente</SelectItem>
-                  <SelectItem value="in_progress">En Progreso</SelectItem>
-                  <SelectItem value="completed">Completado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="payment_method_in">Método de Cobro (Ingresos)</Label>
+                {formData.currency === "USD" ? (
+                  <Select
+                    value={formData.payment_method_in}
+                    onValueChange={(value) => setFormData({ ...formData, payment_method_in: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar método" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Paypal">Paypal</SelectItem>
+                      <SelectItem value="Binance">Binance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="payment_method_in"
+                    value={formData.payment_method_in}
+                    onChange={(e) => setFormData({ ...formData, payment_method_in: e.target.value })}
+                    placeholder="Ej. Transferencia, Efectivo"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment_method_out">Método de Pago (Egresos)</Label>
+                <Input
+                  id="payment_method_out"
+                  value={formData.payment_method_out}
+                  onChange={(e) => setFormData({ ...formData, payment_method_out: e.target.value })}
+                  placeholder="Ej. Transferencia"
+                />
+              </div>
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}
