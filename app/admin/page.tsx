@@ -66,6 +66,7 @@ import type { Client, Profile, Project, PaymentFrequency } from "@/lib/types"
 import { EDITOR_SECTIONS } from "@/lib/types"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
+import { toast } from "sonner"
 
 // Types
 interface Stats {
@@ -145,18 +146,33 @@ export default function AdminDashboard() {
       const supabase = createClient()
       
       const [
-        { data: projectsData },
-        { data: clientsData },
-        { data: editorsData },
+        { data: tasksData, error: tasksError },
+        { data: clientsData, error: clientsError },
+        { data: editorsData, error: editorsError },
         { data: sectionsData }
       ] = await Promise.all([
-        supabase.from("projects").select("*, client:clients(*), editor:profiles(*)").order("created_at", { ascending: false }),
+        // Fetch tasks instead of projects, as tasks contain the financial info
+        supabase.from("tasks").select("*, client:clients(*), editor:profiles(*)").order("created_at", { ascending: false }),
         supabase.from("clients").select("*").eq("is_active", true).order("name"),
         supabase.from("profiles").select("*").eq("role", "editor").eq("is_active", true).order("full_name"),
         supabase.from("user_sections").select("*")
       ])
 
-      setProjects(projectsData || [])
+      if (tasksError) {
+        console.error("Error loading tasks:", tasksError)
+        toast.error("Error al cargar tareas")
+      }
+      if (clientsError) console.error("Error loading clients:", clientsError)
+      if (editorsError) console.error("Error loading editors:", editorsError)
+
+      // Map tasks to project interface to keep UI working
+      const mappedProjects = (tasksData as any[])?.map(t => ({
+        ...t,
+        billed_amount: Number(t.billed_amount || 0),
+        editor_payment: Number(t.editor_payment || 0)
+      })) || []
+
+      setProjects(mappedProjects)
       setClients(clientsData || [])
       setEditors(editorsData || [])
 
@@ -170,6 +186,7 @@ export default function AdminDashboard() {
 
     } catch (error) {
       console.error("Error loading data:", error)
+      toast.error("Error general al cargar datos")
     } finally {
       setLoading(false)
     }
@@ -238,26 +255,26 @@ export default function AdminDashboard() {
     }
   }, [dateFilteredProjects, projects, clients.length, editors.length])
 
-  // Inbox items (always based on all active projects)
+  // Inbox items (always based on all active tasks)
   const inboxItems = useMemo(() => {
     const today = new Date().toISOString().split("T")[0]
     const items: InboxItem[] = []
-    projects.forEach((p) => {
+    tasks.forEach((p) => {
       if (p.due_date && p.due_date < today && p.status !== "completed") {
-        items.push({ id: `overdue-${p.id}`, type: "overdue", project: p, message: `Vencido` })
+        items.push({ id: `overdue-${p.id}`, type: "overdue", task: p, message: `Vencido` })
       }
       if (p.status === "completed" && !p.payment_received) {
-        items.push({ id: `payment-client-${p.id}`, type: "payment_client", project: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
+        items.push({ id: `payment-client-${p.id}`, type: "payment_client", task: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
       }
       if (p.status === "completed" && !p.payment_made && p.editor_id) {
-        items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", project: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
+        items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", task: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
       }
       if (!p.editor_id && !["completed", "cancelled"].includes(p.status)) {
-        items.push({ id: `no-editor-${p.id}`, type: "no_editor", project: p, message: "Sin editor" })
+        items.push({ id: `no-editor-${p.id}`, type: "no_editor", task: p, message: "Sin editor" })
       }
     })
     return items
-  }, [projects])
+  }, [tasks])
 
   // Project handlers
   const openProjectDialog = (project?: Project) => {
@@ -283,24 +300,39 @@ export default function AdminDashboard() {
   const saveProject = async () => {
     setSaving(true)
     const supabase = createClient()
+    
+    // We are saving to TASKS table, but we call it "Project" in UI
     const data = {
-      ...projectForm,
+      title: projectForm.title,
+      description: projectForm.description,
       client_id: projectForm.client_id || null,
       editor_id: projectForm.editor_id || null,
       billed_amount: Number(projectForm.billed_amount) || 0,
       editor_payment: Number(projectForm.editor_payment) || 0,
+      status: projectForm.status,
       due_date: projectForm.due_date || null
     }
 
+    let error = null
+
     if (editingProject) {
-      await supabase.from("projects").update(data).eq("id", editingProject.id)
+      const { error: err } = await supabase.from("tasks").update(data).eq("id", editingProject.id)
+      error = err
     } else {
-      await supabase.from("projects").insert(data)
+      const { error: err } = await supabase.from("tasks").insert(data)
+      error = err
     }
     
     setSaving(false)
-    setProjectDialog(false)
-    loadData()
+    
+    if (error) {
+      console.error("Error saving task:", error)
+      toast.error("Error al guardar: " + error.message)
+    } else {
+      toast.success("Guardado correctamente")
+      setProjectDialog(false)
+      loadData()
+    }
   }
 
   // Client handlers
@@ -319,15 +351,25 @@ export default function AdminDashboard() {
     setSaving(true)
     const supabase = createClient()
     
+    let error = null
     if (editingClient) {
-      await supabase.from("clients").update(clientForm).eq("id", editingClient.id)
+      const { error: err } = await supabase.from("clients").update(clientForm).eq("id", editingClient.id)
+      error = err
     } else {
-      await supabase.from("clients").insert(clientForm)
+      const { error: err } = await supabase.from("clients").insert(clientForm)
+      error = err
     }
     
     setSaving(false)
-    setClientDialog(false)
-    loadData()
+    
+    if (error) {
+      console.error("Error saving client:", error)
+      toast.error("Error al guardar cliente: " + error.message)
+    } else {
+      toast.success("Cliente guardado correctamente")
+      setClientDialog(false)
+      loadData()
+    }
   }
 
   // Editor handlers
@@ -357,15 +399,25 @@ export default function AdminDashboard() {
       delete (data as any).password_hash
     }
 
+    let error = null
     if (editingEditor) {
-      await supabase.from("profiles").update(data).eq("id", editingEditor.id)
+      const { error: err } = await supabase.from("profiles").update(data).eq("id", editingEditor.id)
+      error = err
     } else {
-      await supabase.from("profiles").insert({ ...data, role: "editor" })
+      const { error: err } = await supabase.from("profiles").insert({ ...data, role: "editor" })
+      error = err
     }
     
     setSaving(false)
-    setEditorDialog(false)
-    loadData()
+    
+    if (error) {
+      console.error("Error saving editor:", error)
+      toast.error("Error al guardar editor: " + error.message)
+    } else {
+      toast.success("Editor guardado correctamente")
+      setEditorDialog(false)
+      loadData()
+    }
   }
 
   // Delete handler
@@ -373,16 +425,26 @@ export default function AdminDashboard() {
     if (!deleteDialog) return
     const supabase = createClient()
     
+    let error = null
     if (deleteDialog.type === "project") {
-      await supabase.from("projects").delete().eq("id", deleteDialog.item.id)
+      const { error: err } = await supabase.from("tasks").delete().eq("id", deleteDialog.item.id)
+      error = err
     } else if (deleteDialog.type === "client") {
-      await supabase.from("clients").update({ is_active: false }).eq("id", deleteDialog.item.id)
+      const { error: err } = await supabase.from("clients").update({ is_active: false }).eq("id", deleteDialog.item.id)
+      error = err
     } else if (deleteDialog.type === "editor") {
-      await supabase.from("profiles").update({ is_active: false }).eq("id", deleteDialog.item.id)
+      const { error: err } = await supabase.from("profiles").update({ is_active: false }).eq("id", deleteDialog.item.id)
+      error = err
     }
     
-    setDeleteDialog(null)
-    loadData()
+    if (error) {
+      console.error("Error deleting item:", error)
+      toast.error("Error al eliminar: " + error.message)
+    } else {
+      toast.success("Elemento eliminado correctamente")
+      setDeleteDialog(null)
+      loadData()
+    }
   }
 
   // Inbox action
@@ -393,8 +455,13 @@ export default function AdminDashboard() {
     if (item.type === "payment_editor") updates.payment_made = true
 
     if (Object.keys(updates).length > 0) {
-      await supabase.from("projects").update(updates).eq("id", item.project.id)
-      loadData()
+      const { error } = await supabase.from("tasks").update(updates).eq("id", item.task.id)
+      if (error) {
+        toast.error("Error al actualizar estado")
+      } else {
+        toast.success("Estado actualizado")
+        loadData()
+      }
     }
   }
 
@@ -631,13 +698,13 @@ export default function AdminDashboard() {
                   key={item.id} 
                   variant="outline" 
                   className="cursor-pointer hover:bg-background flex items-center gap-2 py-1.5"
-                  onClick={() => setViewProject(item.project)}
+                  onClick={() => setViewProject(item.task)}
                 >
                   {item.type === "overdue" && <Clock className="h-3 w-3 text-destructive" />}
                   {item.type === "payment_client" && <DollarSign className="h-3 w-3 text-green-600" />}
                   {item.type === "payment_editor" && <DollarSign className="h-3 w-3 text-orange-600" />}
                   {item.type === "no_editor" && <UserX className="h-3 w-3 text-muted-foreground" />}
-                  <span className="max-w-[150px] truncate">{item.project.title}</span>
+                  <span className="max-w-[150px] truncate">{item.task.title}</span>
                   {(item.type === "payment_client" || item.type === "payment_editor") && (
                     <Button 
                       size="sm" 
