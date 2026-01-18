@@ -259,22 +259,22 @@ export default function AdminDashboard() {
   const inboxItems = useMemo(() => {
     const today = new Date().toISOString().split("T")[0]
     const items: InboxItem[] = []
-    tasks.forEach((p) => {
+    projects.forEach((p) => {
       if (p.due_date && p.due_date < today && p.status !== "completed") {
-        items.push({ id: `overdue-${p.id}`, type: "overdue", task: p, message: `Vencido` })
+        items.push({ id: `overdue-${p.id}`, type: "overdue", project: p, message: `Vencido` })
       }
       if (p.status === "completed" && !p.payment_received) {
-        items.push({ id: `payment-client-${p.id}`, type: "payment_client", task: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
+        items.push({ id: `payment-client-${p.id}`, type: "payment_client", project: p, message: `Cobrar $${Number(p.billed_amount).toLocaleString()}` })
       }
       if (p.status === "completed" && !p.payment_made && p.editor_id) {
-        items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", task: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
+        items.push({ id: `payment-editor-${p.id}`, type: "payment_editor", project: p, message: `Pagar $${Number(p.editor_payment).toLocaleString()}` })
       }
       if (!p.editor_id && !["completed", "cancelled"].includes(p.status)) {
-        items.push({ id: `no-editor-${p.id}`, type: "no_editor", task: p, message: "Sin editor" })
+        items.push({ id: `no-editor-${p.id}`, type: "no_editor", project: p, message: "Sin editor" })
       }
     })
     return items
-  }, [tasks])
+  }, [projects])
 
   // Project handlers
   const openProjectDialog = (project?: Project) => {
@@ -455,7 +455,7 @@ export default function AdminDashboard() {
     if (item.type === "payment_editor") updates.payment_made = true
 
     if (Object.keys(updates).length > 0) {
-      const { error } = await supabase.from("tasks").update(updates).eq("id", item.task.id)
+      const { error } = await supabase.from("tasks").update(updates).eq("id", item.project.id)
       if (error) {
         toast.error("Error al actualizar estado")
       } else {
@@ -698,13 +698,13 @@ export default function AdminDashboard() {
                   key={item.id} 
                   variant="outline" 
                   className="cursor-pointer hover:bg-background flex items-center gap-2 py-1.5"
-                  onClick={() => setViewProject(item.task)}
+                  onClick={() => setViewProject(item.project)}
                 >
                   {item.type === "overdue" && <Clock className="h-3 w-3 text-destructive" />}
                   {item.type === "payment_client" && <DollarSign className="h-3 w-3 text-green-600" />}
                   {item.type === "payment_editor" && <DollarSign className="h-3 w-3 text-orange-600" />}
                   {item.type === "no_editor" && <UserX className="h-3 w-3 text-muted-foreground" />}
-                  <span className="max-w-[150px] truncate">{item.task.title}</span>
+                  <span className="max-w-[150px] truncate">{item.project.title}</span>
                   {(item.type === "payment_client" || item.type === "payment_editor") && (
                     <Button 
                       size="sm" 
