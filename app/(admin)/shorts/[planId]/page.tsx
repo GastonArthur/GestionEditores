@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Settings } from "lucide-react"
 import Link from "next/link"
 
-export default async function PlanDetailsPage({ params }: { params: { planId: string } }) {
+export default async function PlanDetailsPage({ params }: { params: Promise<{ planId: string }> }) {
+  const { planId } = await params
   const supabase = await createClient()
 
   const { data: plan } = await supabase
@@ -19,7 +20,7 @@ export default async function PlanDetailsPage({ params }: { params: { planId: st
       clients:client_id(name),
       editors:editor_id(full_name)
     `)
-    .eq("id", params.planId)
+    .eq("id", planId)
     .single()
 
   if (!plan) return notFound()

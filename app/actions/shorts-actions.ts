@@ -42,8 +42,9 @@ export async function createShortsPlanAction(data: CreatePlanSchema) {
     await generateWeeklyTasks(plan.id, validated.start_date)
   } catch (err) {
     console.error("Error generating initial tasks:", err)
-    // We don't throw here to avoid failing the whole plan creation if task generation fails
-    // But ideally we should inform the user. For now, let's keep the plan.
+    // Cleanup the plan if task generation fails to avoid inconsistency
+    await supabase.from("shorts_plans").delete().eq("id", plan.id)
+    throw new Error(`Error generating initial tasks: ${err instanceof Error ? err.message : 'Unknown error'}`)
   }
 
   revalidatePath("/shorts")
