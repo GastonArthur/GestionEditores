@@ -91,7 +91,7 @@ export function CreatePlanForm({ clients, editors }: CreatePlanFormProps) {
       toast.success("Plan creado exitosamente")
       router.push("/shorts")
     } catch (error) {
-      toast.error("Error al crear el plan")
+      toast.error(error instanceof Error ? error.message : "Error al crear el plan")
       console.error(error)
     } finally {
       setIsPending(false)

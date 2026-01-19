@@ -83,6 +83,7 @@ export function Sidebar({ role, userName }: SidebarProps) {
       items: [
         { href: "/editor/projects", label: "Mis Proyectos", icon: FolderKanban },
         { href: "/editor/tasks", label: "Mis Tareas", icon: CheckSquare },
+        { href: "/editor/shorts", label: "Shorts Plan", icon: Video },
       ]
     },
     {

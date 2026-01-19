@@ -34,7 +34,7 @@ export async function createShortsPlanAction(data: CreatePlanSchema) {
 
   if (error) {
     console.error("Error creating plan:", error)
-    throw new Error(error.message)
+    throw new Error(`Error creating plan: ${error.message} (${error.code})`)
   }
 
   // Generate tasks for the first week
