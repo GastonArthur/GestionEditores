@@ -138,11 +138,13 @@ export const ADMIN_SECTIONS = [
   { key: "editors", label: "Editores", icon: "UserCircle" },
   { key: "payments", label: "Pagos", icon: "DollarSign" },
   { key: "reports", label: "Reportes", icon: "BarChart3" },
+  { key: "shorts", label: "Shorts - Plan Diario", icon: "Video" },
   { key: "settings", label: "Configuración", icon: "Settings" },
 ] as const
 
 export const EDITOR_SECTIONS = [
   { key: "dashboard", label: "Mi Panel", icon: "LayoutDashboard" },
+  { key: "shorts", label: "Shorts - Plan Diario", icon: "Video" },
   { key: "my_tasks", label: "Mis Tareas", icon: "CheckSquare" },
   { key: "my_projects", label: "Mis Proyectos", icon: "FolderKanban" },
   { key: "my_payments", label: "Mis Pagos", icon: "DollarSign" },

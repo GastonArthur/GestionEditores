@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, CheckSquare, DollarSign, Users, LogOut } from "lucide-react"
+import { LayoutDashboard, CheckSquare, DollarSign, Users, LogOut, Video } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -19,6 +19,7 @@ export function AdminNav() {
   const navItems = [
     { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
     { href: "/tasks", label: "Tareas", icon: CheckSquare },
+    { href: "/shorts", label: "Shorts Plan", icon: Video },
     { href: "/accounting", label: "Contabilidad", icon: DollarSign },
     { href: "/contacts", label: "Contactos", icon: Users },
   ]

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { CheckSquare, DollarSign, LogOut } from "lucide-react"
+import { CheckSquare, DollarSign, LogOut, Video } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -18,6 +18,7 @@ export function EditorNav() {
 
   const navItems = [
     { href: "/editor", label: "Mis Tareas", icon: CheckSquare },
+    { href: "/editor/shorts", label: "Shorts Plan", icon: Video },
     { href: "/editor/payments", label: "Pagos", icon: DollarSign },
   ]
 
