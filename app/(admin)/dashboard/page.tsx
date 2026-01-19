@@ -104,6 +104,7 @@ export default function AdminDashboard() {
   
   // Filter states
   const [dateFilter, setDateFilter] = useState<DateFilterType>("all")
+  const [currencyFilter, setCurrencyFilter] = useState<"ARS" | "USD">("ARS")
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined,
@@ -152,7 +153,7 @@ export default function AdminDashboard() {
         { data: sectionsData }
       ] = await Promise.all([
         // Fetch tasks instead of projects, as tasks contain the financial info
-        supabase.from("tasks").select("*, client:clients(*), editor:profiles(*)").order("created_at", { ascending: false }),
+        supabase.from("tasks").select("*, client:clients(*), editor:profiles(*), project:projects(currency)").order("created_at", { ascending: false }),
         supabase.from("clients").select("*").eq("is_active", true).order("name"),
         supabase.from("profiles").select("*").eq("role", "editor").eq("is_active", true).order("full_name"),
         supabase.from("user_permissions").select("*")
@@ -169,7 +170,8 @@ export default function AdminDashboard() {
       const mappedProjects = (tasksData as any[])?.map(t => ({
         ...t,
         billed_amount: Number(t.billed_amount || 0),
-        editor_payment: Number(t.editor_payment || 0)
+        editor_payment: Number(t.editor_payment || 0),
+        currency: t.project?.currency || "ARS"
       })) || []
 
       setProjects(mappedProjects)
@@ -234,11 +236,13 @@ export default function AdminDashboard() {
 
   // Calculate Stats based on filtered projects
   const stats: Stats = useMemo(() => {
-    const totalRevenue = dateFilteredProjects
+    const currencyProjects = dateFilteredProjects.filter(p => (p.currency || "ARS") === currencyFilter)
+
+    const totalRevenue = currencyProjects
       .filter((p) => p.payment_received)
       .reduce((sum, p) => sum + Number(p.billed_amount || 0), 0)
     
-    const totalPayments = dateFilteredProjects
+    const totalPayments = currencyProjects
       .filter((p) => p.payment_made)
       .reduce((sum, p) => sum + Number(p.editor_payment || 0), 0)
     
@@ -253,7 +257,7 @@ export default function AdminDashboard() {
       activeProjects,
       pendingTasks: 0,
     }
-  }, [dateFilteredProjects, projects, clients.length, editors.length])
+  }, [dateFilteredProjects, projects, clients.length, editors.length, currencyFilter])
 
   // Inbox items (always based on all active tasks)
   const inboxItems = useMemo(() => {
@@ -532,6 +536,16 @@ export default function AdminDashboard() {
         
         {/* Filter Controls */}
         <div className="flex items-center gap-2">
+          <Select value={currencyFilter} onValueChange={(v: "ARS" | "USD") => setCurrencyFilter(v)}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue placeholder="Moneda" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ARS">ARS</SelectItem>
+              <SelectItem value="USD">USD</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Select value={dateFilter} onValueChange={(v: DateFilterType) => setDateFilter(v)}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Periodo" />
@@ -610,7 +624,10 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Ingresos</p>
-                <p className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {currencyFilter === "USD" ? "US$" : "$"}
+                  {stats.totalRevenue.toLocaleString()}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -623,7 +640,10 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pagos</p>
-                <p className="text-2xl font-bold">${stats.totalPayments.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {currencyFilter === "USD" ? "US$" : "$"}
+                  {stats.totalPayments.toLocaleString()}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -636,7 +656,10 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Ganancia</p>
-                <p className="text-2xl font-bold">${stats.netProfit.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {currencyFilter === "USD" ? "US$" : "$"}
+                  {stats.netProfit.toLocaleString()}
+                </p>
               </div>
             </div>
           </CardContent>

@@ -19,6 +19,7 @@ export default function NewTaskPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editors, setEditors] = useState<any[]>([])
+  const [projectDefaults, setProjectDefaults] = useState<{ default_editor_price?: number }>({})
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -26,6 +27,7 @@ export default function NewTaskPage() {
     payment_amount: "",
     editor_id: "",
     status: "pending",
+    due_date: "",
   })
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export default function NewTaskPage() {
         editor_id: formData.editor_id || null,
         content_quantity: Number(formData.video_count),
         editor_payment: Number(formData.payment_amount),
+        due_date: formData.due_date || null,
       })
 
       if (insertError) {
@@ -94,7 +97,7 @@ export default function NewTaskPage() {
         return
       }
 
-      router.push(`/admin/projects/${projectId}`)
+      router.push(`/projects/${projectId}`)
       router.refresh()
     } catch (err) {
       console.error(err)
@@ -164,6 +167,30 @@ export default function NewTaskPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
+                <Label htmlFor="due_date">Fecha de Finalización</Label>
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="status">Estado</Label>
+                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="in_progress">En Progreso</SelectItem>
+                    <SelectItem value="completed">Completado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
                 <Label htmlFor="editor">Asignar Editor</Label>
                 <Select
                   value={formData.editor_id}
@@ -180,21 +207,6 @@ export default function NewTaskPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Estado</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="in_progress">En Progreso</SelectItem>
-                    <SelectItem value="completed">Completado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}

@@ -48,7 +48,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="space-y-6 p-8">
       <div className="flex items-center gap-4">
-        <Link href="/admin/projects">
+        <Link href="/projects">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -118,7 +118,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Tareas</CardTitle>
-            <Link href={`/admin/projects/${id}/tasks/new`}>
+            <Link href={`/projects/${id}/tasks/new`}>
               <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Nueva Tarea
