@@ -31,6 +31,10 @@ export function ShortsTasksList({ tasks, planId, isAdmin }: ShortsTasksListProps
     rejected: "Rechazado",
   }
 
+  if (tasks.length === 0) {
+    return null
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -85,12 +89,6 @@ export function ShortsTasksList({ tasks, planId, isAdmin }: ShortsTasksListProps
               </div>
             </div>
           ))}
-          
-          {tasks.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-               <p className="text-muted-foreground">No hay tareas generadas para este período.</p>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

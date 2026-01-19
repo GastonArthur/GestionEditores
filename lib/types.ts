@@ -64,6 +64,9 @@ export interface Project {
   paid_by?: string
   payment_received: boolean
   payment_made: boolean
+  payment_method_in?: string
+  payment_method_out?: string
+  currency?: string
   delivered_at?: string
   created_at: string
   updated_at: string

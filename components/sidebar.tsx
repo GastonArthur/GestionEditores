@@ -56,6 +56,7 @@ export function Sidebar({ role, userName }: SidebarProps) {
       items: [
         { href: "/projects", label: "Proyectos", icon: FolderKanban },
         { href: "/tasks", label: "Tareas", icon: CheckSquare },
+        { href: "/shorts", label: "Shorts Plan", icon: Video },
         { href: "/clients", label: "Clientes", icon: Users },
         { href: "/editors", label: "Editores", icon: UserCircle },
       ]

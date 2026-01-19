@@ -80,7 +80,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               <p className="text-xs text-muted-foreground">Precio</p>
               <p className="text-2xl font-bold">
                 {project?.currency === "USD" ? "US$" : "$"}
-                {Number(project?.price || 0).toFixed(2)}
+                {Number(project?.billed_amount || 0).toFixed(2)}
                 <span className="ml-1 text-sm font-normal text-muted-foreground">{project?.currency || "ARS"}</span>
               </p>
             </div>

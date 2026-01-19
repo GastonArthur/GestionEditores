@@ -10,14 +10,14 @@ export default async function AccountingPage() {
 
   const [{ data: projects }, { data: completedTasks }, { data: allTasks }, { data: payments }, { data: editors }] =
     await Promise.all([
-      supabase.from("projects").select("price, status").eq("status", "completed"),
+      supabase.from("projects").select("billed_amount, status").eq("status", "completed"),
       supabase.from("tasks").select("payment_amount").eq("status", "completed"),
       supabase.from("tasks").select("payment_amount"),
       supabase.from("payments").select("amount"),
       supabase.from("users").select("id, full_name, email").eq("role", "editor"),
     ])
 
-  const totalRevenue = projects?.reduce((sum, p) => sum + Number(p.price), 0) || 0
+  const totalRevenue = projects?.reduce((sum, p) => sum + Number(p.billed_amount), 0) || 0
   const totalExpenses = completedTasks?.reduce((sum, t) => sum + Number(t.payment_amount), 0) || 0
   const totalPaid = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
   const pendingPayments = totalExpenses - totalPaid

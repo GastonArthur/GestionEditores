@@ -64,7 +64,7 @@ export default async function ProjectsPage() {
                   <span className="text-muted-foreground">Cliente: {project.clients?.name || "Sin asignar"}</span>
                   <span className="font-semibold">
                     {project.currency === "USD" ? "US$" : "$"}
-                    {Number(project.price).toFixed(2)}
+                    {Number(project.billed_amount || 0).toFixed(2)}
                   </span>
                 </div>
               </CardContent>

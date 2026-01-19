@@ -73,7 +73,7 @@ export function TaskList({ tasks, editors, projectId }: { tasks: Task[]; editors
   }
 
   if (!localTasks.length) {
-    return <p className="text-center text-muted-foreground py-8">No hay tareas para este proyecto</p>
+    return null
   }
 
   return (

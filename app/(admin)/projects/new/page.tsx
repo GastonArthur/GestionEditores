@@ -22,6 +22,8 @@ export default function NewProjectPage() {
     description: "",
     client_id: "",
     price: "",
+    default_price: "",
+    default_editor_price: "",
     status: "pending",
     currency: "ARS",
     payment_method_in: "",
@@ -53,13 +55,13 @@ export default function NewProjectPage() {
         description: formData.description,
         client_id: formData.client_id || null,
         status: formData.status,
-        price: Number(formData.price),
+        billed_amount: formData.price ? Number(formData.price) : 0,
+        default_price: formData.default_price ? Number(formData.default_price) : null,
+        default_editor_price: formData.default_editor_price ? Number(formData.default_editor_price) : null,
         created_by: user?.id,
-        // The following fields are in the form but likely missing in the DB schema, causing the 400 error.
-        // To save them, run scripts/08-add-payment-methods-to-projects.sql in Supabase.
-        // currency: formData.currency,
-        // payment_method_in: formData.payment_method_in,
-        // payment_method_out: formData.payment_method_out,
+        currency: formData.currency,
+        payment_method_in: formData.payment_method_in,
+        payment_method_out: formData.payment_method_out,
       })
 
       if (insertError) {
