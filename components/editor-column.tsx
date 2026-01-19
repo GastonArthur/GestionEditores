@@ -3,7 +3,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TaskDetailCard } from "@/components/task-detail-card"
-import { Phone } from "lucide-react"
 
 interface Editor {
   id: string
@@ -28,6 +27,7 @@ interface Task {
   payment_made: boolean
   status: string
   created_at: string
+  due_date: string | null
 }
 
 export function EditorColumn({ editor, tasks }: { editor: Editor; tasks: Task[] }) {
@@ -42,12 +42,6 @@ export function EditorColumn({ editor, tasks }: { editor: Editor; tasks: Task[] 
           <span>{editor.full_name}</span>
           <Badge variant="outline">{tasks.length}</Badge>
         </CardTitle>
-        {editor.phone && (
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            <Phone className="h-3 w-3" />
-            {editor.phone}
-          </p>
-        )}
       </CardHeader>
       <CardContent className="p-3 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
         {pendingTasks.length > 0 && (

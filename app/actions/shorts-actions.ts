@@ -38,10 +38,15 @@ export async function createShortsPlanAction(data: CreatePlanSchema) {
   }
 
   // Generate tasks for the first week
-  await generateWeeklyTasks(plan.id, validated.start_date)
+  try {
+    await generateWeeklyTasks(plan.id, validated.start_date)
+  } catch (err) {
+    console.error("Error generating initial tasks:", err)
+    // We don't throw here to avoid failing the whole plan creation if task generation fails
+    // But ideally we should inform the user. For now, let's keep the plan.
+  }
 
   revalidatePath("/shorts")
-  // We redirect in the component or here. If here, it must be the last statement.
 }
 
 export async function generateWeeklyTasks(planId: string, weekStartDateStr: string) {

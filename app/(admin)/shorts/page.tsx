@@ -11,7 +11,7 @@ export default async function ShortsPlansPage() {
 
   // Fetch plans with related data
   // Using explicit type casting or allowing any if types are not generated yet
-  const { data: plans } = await supabase
+  const { data: plans, error } = await supabase
     .from("shorts_plans")
     .select(`
       *,
@@ -20,10 +20,26 @@ export default async function ShortsPlansPage() {
     `)
     .order("created_at", { ascending: false })
 
+  if (error) {
+    console.error("Error fetching plans:", error)
+  }
+
   const statusColors: Record<string, string> = {
     active: "bg-green-500",
     inactive: "bg-gray-500",
     paused: "bg-yellow-500",
+  }
+
+  const getClientName = (client: any) => {
+    if (!client) return "Sin Cliente"
+    if (Array.isArray(client)) return client[0]?.name || "Sin Cliente"
+    return client.name || "Sin Cliente"
+  }
+
+  const getEditorName = (editor: any) => {
+    if (!editor) return "Sin Editor"
+    if (Array.isArray(editor)) return editor[0]?.full_name || "Sin Editor"
+    return editor.full_name || "Sin Editor"
   }
 
   return (
@@ -50,7 +66,7 @@ export default async function ShortsPlansPage() {
                   <div className="flex items-center gap-2">
                     <Video className="h-4 w-4 text-primary" />
                     <CardTitle className="text-lg font-bold">
-                       {plan.clients?.name || "Sin Cliente"}
+                       {getClientName(plan.clients)}
                     </CardTitle>
                   </div>
                   <Badge className={statusColors[plan.status] || "bg-gray-500"}>
@@ -61,7 +77,7 @@ export default async function ShortsPlansPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 p-2 rounded-md">
                     <User className="h-4 w-4" />
-                    <span className="font-medium text-foreground">{plan.editors?.full_name || "Sin Editor"}</span>
+                    <span className="font-medium text-foreground">{getEditorName(plan.editors)}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2 text-sm">
