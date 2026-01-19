@@ -1,18 +1,36 @@
-
 import { createClient } from "@/lib/supabase/server"
 import { CreatePlanForm } from "@/components/shorts/create-plan-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default async function NewShortsPlanPage() {
   const supabase = await createClient()
+  
+  let clients = []
+  let editors = []
+  let error = null
 
-  const [{ data: clients }, { data: editors }] = await Promise.all([
-    supabase.from("clients").select("id, name").eq("is_active", true),
-    supabase.from("profiles").select("id, full_name").eq("role", "editor").eq("is_active", true)
-  ])
+  try {
+    const results = await Promise.all([
+      supabase.from("clients").select("id, name").eq("is_active", true),
+      supabase.from("profiles").select("id, full_name").eq("role", "editor").eq("is_active", true)
+    ])
+
+    const clientsResult = results[0]
+    const editorsResult = results[1]
+
+    if (clientsResult.error) throw new Error(`Error loading clients: ${clientsResult.error.message}`)
+    if (editorsResult.error) throw new Error(`Error loading editors: ${editorsResult.error.message}`)
+
+    clients = clientsResult.data || []
+    editors = editorsResult.data || []
+  } catch (e) {
+    console.error("Error loading data for new shorts plan:", e)
+    error = e instanceof Error ? e.message : "Error desconocido al cargar datos"
+  }
 
   return (
     <div className="space-y-6 p-8 max-w-4xl mx-auto">
@@ -28,6 +46,18 @@ export default async function NewShortsPlanPage() {
         <p className="text-muted-foreground">Configura un plan recurrente para la asignación automática de tareas.</p>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            No se pudieron cargar los datos necesarios: {error}
+            <br />
+            Por favor verifica tu conexión a la base de datos.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Configuración del Plan</CardTitle>
@@ -37,8 +67,8 @@ export default async function NewShortsPlanPage() {
         </CardHeader>
         <CardContent>
           <CreatePlanForm 
-            clients={clients || []} 
-            editors={editors || []} 
+            clients={clients} 
+            editors={editors} 
           />
         </CardContent>
       </Card>

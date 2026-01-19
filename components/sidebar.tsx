@@ -62,13 +62,6 @@ export function Sidebar({ role, userName }: SidebarProps) {
       ]
     },
     {
-      key: "finance",
-      label: "Finanzas",
-      items: [
-        { href: "/accounting", label: "Contabilidad", icon: DollarSign },
-      ]
-    },
-    {
       key: "settings",
       label: "Configuración",
       items: [

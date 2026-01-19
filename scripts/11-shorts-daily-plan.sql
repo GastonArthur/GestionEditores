@@ -176,7 +176,7 @@ FOR EACH ROW EXECUTE FUNCTION log_shorts_activity();
 DROP TRIGGER IF EXISTS log_weekly_closures ON weekly_closures;
 CREATE TRIGGER log_weekly_closures
 AFTER INSERT OR UPDATE OR DELETE ON weekly_closures
-FOR EACH ROW EXECUTE FUNCTION log_weekly_closures();
+FOR EACH ROW EXECUTE FUNCTION log_shorts_activity();
 
 -- 8. Indexes
 CREATE INDEX idx_shorts_plans_editor ON shorts_plans(editor_id);

@@ -49,6 +49,9 @@ export default async function TasksPage() {
           {editors.map((editor) => {
             const editorTasks =
               tasks?.filter((task) => task.editor_id === editor.id && task.status !== "completed") || []
+            
+            if (editorTasks.length === 0) return null
+
             return <EditorColumn key={editor.id} editor={editor} tasks={editorTasks} />
           })}
         </div>

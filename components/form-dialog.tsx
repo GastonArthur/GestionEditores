@@ -38,7 +38,9 @@ export function FormDialog({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
+          <DialogDescription className={!description ? "sr-only" : ""}>
+            {description || title}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">{children}</div>
         <DialogFooter>
